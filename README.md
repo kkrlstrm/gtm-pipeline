@@ -111,10 +111,7 @@ pattern is a deliberate bet that differentiation lives in that judgment layer, n
 
 ## Is this a Clay replacement?
 
-No. **Clay** is a visual GTM workbench for human-operated enrichment. `gtm-pipeline` is a
-portable execution layer for *agent-driven* workflows — run from a plain-English brief, not
-clicked together in a UI. Different tool, different job; it isn't trying to clone the
-workbench.
+No. Clay is where a human operates a workflow. gtm-pipeline is where an agent executes a workflow that has already been encoded.
 
 ## Architecture
 
