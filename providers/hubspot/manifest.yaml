@@ -1,0 +1,32 @@
+# providers/hubspot/manifest.yaml
+# OPTIONAL CRM dedupe. Read-only: checks whether a company (by domain) or contact (by
+# email) already exists in your HubSpot CRM, so list-building suppresses what you already
+# have. Custom /crm/v3 read API (no MCP). Verified against
+# https://developers.hubspot.com/docs/api/crm/search (2026-06).
+name: hubspot
+display_name: HubSpot CRM (dedupe)
+docs_url: https://developers.hubspot.com/docs/api/crm/search
+auth:
+  type: bearer
+  env: HUBSPOT_TOKEN          # a Private App access token with crm.objects.*.read scopes
+base_url: https://api.hubapi.com
+
+capabilities:
+  crm_dedupe:
+    cost: "free within HubSpot API rate limits (read-only search)"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/hubspot/adapter.py
+      modes: [crm_dedupe, estimate]
+    # Two suppression points in the pipeline:
+    #   between stage 0 and 0.5 — object:"company", values: discovered domains
+    #   between stage 3 and 4   — object:"contact", values: enriched emails
+    # Underlying calls:
+    #   POST /crm/v3/objects/companies/search  filter {propertyName:"domain", operator:"IN"}
+    #   POST /crm/v3/objects/contacts/search   filter {propertyName:"email",  operator:"IN"}
+    gotchas:
+      - "Auth is a Private App token: 'Authorization: Bearer <HUBSPOT_TOKEN>' with read scopes."
+      - "READ-ONLY — the adapter only searches; it never writes to your CRM."
+      - "HubSpot search can lag a few seconds behind very recent CRM writes (eventual indexing)."
+      - "Match is on the exact domain / email property; normalize domains (no www/protocol) and lowercase emails before passing them in (the adapter lowercases)."

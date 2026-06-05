@@ -1,0 +1,27 @@
+# Personas — persona → title keywords   (REQUIRED)
+#
+# Copy to context/personas.md and fill in. The contact-sourcer turns each persona
+# into the title/seniority filters it sends to people_search providers, and the
+# qualifier uses these to score contacts. One block per persona.
+#
+# Tip: include local-language and regional title variants (e.g. German
+# "Geschäftsführer" for Managing Director) — providers match on the literal title.
+
+## Persona: <Economic Buyer>
+Titles: [<title keywords, incl. variants>, e.g. "VP Finance", "CFO", "Finance Director", "Kaufmännischer Leiter"]
+Seniority: [VP, CxO, Director]
+Why relevant: <one line — what this person owns that makes them buy/champion>
+Disambiguation: <how to tell a real match from a false one, e.g. "'Controller' at a
+  large enterprise ≈ analyst, not a buyer — require Director+">
+
+## Persona: <Champion / Technical Evaluator>
+Titles: [<...>]
+Seniority: [Manager, Senior, Director]
+Why relevant: <...>
+Disambiguation: <...>
+
+## Persona: <User / Influencer>   (optional)
+Titles: [<...>]
+Seniority: [<...>]
+Why relevant: <...>
+Disambiguation: <...>

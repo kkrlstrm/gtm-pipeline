@@ -1,0 +1,8 @@
+# The pipeline core (agents + storage/cli.py + every provider adapter) is STDLIB-ONLY by
+# design — no install needed to run it. The only dependency is for one optional helper:
+#
+#   scripts/show-plan.py   ->   PyYAML   (reads gtm.config.yaml + manifests to print the
+#                                         resolved plan; agents read YAML natively)
+#
+# Install it only if you want that helper:  pip install -r requirements.txt
+PyYAML>=6.0

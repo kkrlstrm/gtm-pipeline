@@ -1,0 +1,23 @@
+# Exclusions — always-skip rules   (OPTIONAL)
+#
+# Copy to context/exclusions.md to hard-filter contacts and companies before they
+# cost you any enrichment credits. These are applied as a deterministic gate, not
+# a score — anything matching is dropped (stage = skipped), never enriched.
+
+## Always-skip titles
+# Title keywords that disqualify a contact regardless of company fit.
+[intern, student, trainee, apprentice, "working student", "werkstudent", retired, freelance]
+
+## Always-skip company types
+# Company categories you never sell to.
+[<e.g. staffing agency, recruiting firm, "lead generation", reseller, competitor>]
+
+## Exclude specific domains / companies
+# Exact accounts to never contact (current customers, partners, do-not-contact).
+[<example.com>, <competitor.com>]
+
+## Notes
+# - Exclusions run BEFORE qualification and enrichment, so they protect your spend.
+# - For cross-campaign "already contacted / bounced / unsubscribed" suppression,
+#   enable the Postgres master-dedup backend (storage/postgres/master-optional.sql);
+#   the local backend has no cross-campaign memory.

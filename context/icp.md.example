@@ -1,0 +1,31 @@
+# ICP — what you sell & who you target   (REQUIRED)
+#
+# Copy to context/icp.md and fill in. This is the single source of truth for what
+# the pipeline is looking for. Briefs you type are interpreted *against* this file.
+
+## Product / value proposition
+<One paragraph: what you sell and the core value it delivers. Example shape:
+"We sell a [category] that helps [buyer] [outcome] without [pain]. The wedge is
+[differentiator]." Be concrete — this is what disambiguates a good-fit account
+from a look-alike that isn't.>
+
+## Target market segments (priority order)
+1. <Primary segment — the accounts you most want. e.g. "Mid-market B2B SaaS,
+   200–2,000 employees, with a dedicated RevOps function">
+2. <Adjacent segment>
+3. <Long-shot / expansion segment>
+
+## Default geography
+<e.g. DACH, North America, UKI. Used when a brief omits a geography. Region names
+here should match keys in config/region-expansion.yaml if you rely on expansion.>
+
+## Default seniorities
+<e.g. Director, VP, CxO. The default seniority band when a brief omits one.>
+
+## Seed / exemplar companies (for look-alike discovery)
+<5–15 named accounts that are perfect fits. Discovery can find look-alikes from
+these. e.g. Acme Corp, Globex, Initech>
+
+## Anti-fit signals (optional but valuable)
+<Quick gut-check disqualifiers: "too small (<50 employees)", "no [function]",
+"already uses [incumbent we can't displace]". Hard exclusions go in exclusions.md.>

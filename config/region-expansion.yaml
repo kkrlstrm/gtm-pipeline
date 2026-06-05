@@ -1,0 +1,53 @@
+# region-expansion.yaml — broad region → explicit country list.
+#
+# Some providers reject broad geographies (e.g. Apify's LinkedIn location filter
+# returns 0 for "Europe" or "North America"). When a manifest's gotchas say a
+# provider needs per-country calls, the pipeline expands the brief's region using
+# this table and issues one call per country.
+#
+# Edit freely. Keys are the region names you use in briefs / gtm.config.yaml
+# defaults.geography; values are the country names each provider expects.
+
+Europe:
+  - Austria
+  - Belgium
+  - Denmark
+  - Finland
+  - France
+  - Germany
+  - Ireland
+  - Italy
+  - Luxembourg
+  - Netherlands
+  - Norway
+  - Poland
+  - Portugal
+  - Spain
+  - Sweden
+  - Switzerland
+  - United Kingdom
+
+DACH:
+  - Germany
+  - Austria
+  - Switzerland
+
+Benelux:
+  - Belgium
+  - Netherlands
+  - Luxembourg
+
+Nordics:
+  - Denmark
+  - Sweden
+  - Norway
+  - Finland
+  - Iceland
+
+"North America":
+  - United States
+  - Canada
+
+UKI:
+  - United Kingdom
+  - Ireland

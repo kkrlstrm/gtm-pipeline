@@ -1,0 +1,31 @@
+# providers/clearoutphone/manifest.yaml
+# Spec-only, validate-only provider. Declares ONLY phone_validate, so the framework
+# treats it as a first-class validation step (the phone waterfall validates each found
+# number with it before accepting).
+name: clearoutphone
+display_name: ClearoutPhone
+docs_url: https://docs.clearoutphone.io
+auth:
+  type: header
+  env: CLEAROUTPHONE_API_KEY
+  header: Authorization
+  header_template: "Bearer:{{key}}"      # NOTE the colon — "Bearer:<key>", not "Bearer <key>"
+base_url: https://api.clearoutphone.io
+
+capabilities:
+  phone_validate:
+    cost: "1 validation / number"
+    method: POST
+    path: /v1/phonenumber/validate
+    request_template: |
+      { "number": "{{number}}", "country_code": "{{country_code}}" }
+    response:
+      field_map:
+        "data.status": status            # provider status -> canonical
+        "data.line_type": line_type
+    status_semantics:
+      valid: ["valid"]
+      invalid: ["invalid"]
+    gotchas:
+      - "Authorization header is 'Bearer:<KEY>' (with a colon), not the usual 'Bearer <KEY>'."
+      - "country_code is the ISO-2 code (e.g. DE) — parse from the number's prefix or the contact's country."

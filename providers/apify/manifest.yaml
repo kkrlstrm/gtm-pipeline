@@ -1,0 +1,35 @@
+# providers/apify/manifest.yaml
+# Script-backed people_search: the actor run is async with company-name→LinkedIn-URL
+# pre-resolution, so the agent calls adapter.py (which emits canonical contacts).
+name: apify
+display_name: Apify (harvestapi/linkedin-company-employees)
+docs_url: https://apify.com/harvestapi/linkedin-company-employees
+# SCOPE: Apify here is LINKEDIN-ONLY people_search — it scrapes a company's LinkedIn
+# employees. It does NOT do email/phone enrichment or non-LinkedIn sourcing. Use it when
+# you want LinkedIn-sourced contacts; pair with an enricher for email/phone.
+auth:
+  type: env
+  env: APIFY_TOKEN
+base_url: https://api.apify.com/v2
+
+capabilities:
+  people_search:
+    cost: "$4 / 1k profiles (Short mode) + ~$0.02/run start fee"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/apify/adapter.py
+      modes: [run, estimate, resolve-only]
+    response:                       # source profile shape (adapter maps to canonical)
+      field_map:
+        firstName: first_name
+        lastName: last_name
+        "currentPositions[0].title": title
+        "currentPositions[0].companyName": company_name
+        linkedinUrl: linkedin_url
+        "location.linkedinText": location
+    gotchas:
+      - "Short mode returns member-ID LinkedIn URLs (/in/ACw...) — valid for storage/dedup, NOT for Apollo/Lemlist matching. Enrichers must fall back to name+domain."
+      - "The LinkedIn location filter rejects broad regions (Europe/North America → 0 results) — expand to a country list (config/region-expansion.yaml) and pass per-country geographies. The agent does the expansion; the adapter takes geographies as-is."
+      - "seniorityLevelIds map: Director=220, VP=300, CxO=310, Manager=210, Senior=120, Owner/Partner=320 (the adapter maps canonical seniority names)."
+      - "Company names/domains are auto-resolved to verified LinkedIn company URLs before the run (Google lucky + DuckDuckGo fallback)."

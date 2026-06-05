@@ -1,0 +1,65 @@
+# providers/smartlead/manifest.yaml
+# Modern EMAIL sequencer example — an alternative to lemlist for sequencer_push.
+# Spec-only multi-step flow the `activate` agent executes in order. Verified against
+# https://helpcenter.smartlead.ai/en/articles/125-full-api-documentation (2026-06).
+name: smartlead
+display_name: Smartlead
+docs_url: https://api.smartlead.ai/api-reference
+auth:
+  type: query                 # api_key is a QUERY PARAM, not a header
+  env: SMARTLEAD_API_KEY
+  param: api_key
+base_url: https://server.smartlead.ai/api/v1
+
+capabilities:
+  sequencer_push:
+    cost: "free to push; sending uses your Smartlead plan"
+    # The activate agent runs these steps in order, threading captured ids.
+    steps:
+      - name: create_campaign
+        method: POST
+        path: /campaigns/create?api_key={{key}}
+        body: { "name": "{{campaign_name}}", "client_id": null }
+        capture: { campaign_id: id }
+      - name: save_sequence            # only if the brief supplied cadence steps
+        when: "campaign.steps provided"
+        method: POST
+        path: /campaigns/{{campaign_id}}/sequences?api_key={{key}}
+        body: |
+          [
+            {
+              "seq_number": 1,
+              "seq_delay_details": { "delay_in_days": 0 },
+              "variant_distribution_type": "MANUALLY_EQUAL",
+              "variants": [
+                { "subject": "{{subject}}", "email_body": "{{html_body}}", "variant_label": "A" }
+              ]
+            }
+          ]
+      - name: add_leads
+        method: POST
+        path: /campaigns/{{campaign_id}}/leads?api_key={{key}}
+        batch_size: 400                # max 400 leads per request
+        body: |
+          {
+            "lead_list": [ "<one object per export row, mapped via field_map>" ],
+            "settings": { "ignore_duplicate_leads_in_other_campaign": true }
+          }
+    field_map:                         # canonical export row -> smartlead lead field
+      email: email
+      first_name: first_name
+      last_name: last_name
+      company_name: company_name
+      phone: phone_number
+      linkedin_url: linkedin_profile
+      company_domain: company_url
+      location: location
+    response:                          # from the add_leads step
+      imported_path: added_count
+      skipped_path: skipped_count
+      skipped_list_path: skipped_leads
+    gotchas:
+      - "api_key is a QUERY PARAM (?api_key=...), NOT a header."
+      - "create returns the campaign id; sequence cadence lives under variants[] with seq_delay_details.delay_in_days."
+      - "Max 400 leads per add_leads request — batch larger lists."
+      - "Pushing creates the campaign + sequence + leads; you still connect an email account and set the schedule in Smartlead to begin sending."

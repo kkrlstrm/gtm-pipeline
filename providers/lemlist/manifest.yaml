@@ -1,0 +1,33 @@
+# providers/lemlist/manifest.yaml
+# Lemlist is wired ONLY as a sequencer (the activation target). It is intentionally
+# NOT used for people_search or for email/phone enrichment in this framework — those
+# stages use dedicated data providers. The activation adapter is built with the
+# `activate` stage.
+name: lemlist
+display_name: lemlist
+docs_url: https://developer.lemlist.com
+auth:
+  type: basic                       # HTTP Basic with EMPTY username, password = API key
+  env: LEMLIST_API_KEY
+base_url: https://api.lemlist.com
+defaults:
+  rate_limit: { all_endpoints: "20 req / 2s (shared)" }
+  pacing_notes: "Python urllib gets 403 — use curl."
+
+capabilities:
+
+  sequencer_push:
+    cost: "free to push; sending consumes your lemlist plan"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/lemlist/adapter.py
+      modes: [run, estimate]
+    # Structural facts the activate adapter implements:
+    notes:
+      - "Creating a campaign returns a sequenceId; the cadence STEPS live on the SEQUENCE, not the campaign."
+      - "Adding leads supports dedupe + verify options (query params)."
+      - "Lead removal requires ?action=remove."
+    gotchas:
+      - "sequencer_push keeps a narrow contract (campaign + leads + options); rich multi-step cadence building is lemlist-specific and lives here, not in the agent."
+      - "Member-ID LinkedIn URLs may not match lemlist's own lead dedup — push name+email+company, not just a member-ID URL."

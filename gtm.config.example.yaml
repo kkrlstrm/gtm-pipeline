@@ -1,0 +1,69 @@
+# ── gtm.config.yaml — the single wiring file ─────────────────────────────────
+# Copy to `gtm.config.yaml` and edit. This is the ONLY place you declare which
+# providers run in what order, where data is stored, and how much autonomy the
+# pipeline has. No secrets live here (those are in .env); this file references
+# env-var NAMES, never values.
+
+version: 1
+
+# ── Storage backend ──────────────────────────────────────────────────────────
+# local   = zero-setup; data written to ./.gtm-data as JSON/CSV (great for a first run)
+# postgres = shared DB keyed by list_id (multi-run, cross-campaign dedup)
+storage:
+  backend: local
+  local:
+    dir: ./.gtm-data
+  postgres:
+    url_env: DATABASE_URL          # name of the env var holding the connection string
+    enable_master_dedup: false     # opt-in cross-campaign suppression (master-optional.sql)
+
+# ── Your context (BYO markdown) ──────────────────────────────────────────────
+context:
+  dir: ./context
+  files:
+    icp: icp.md                    # REQUIRED — what you sell, who you target
+    personas: personas.md          # REQUIRED — persona → title keywords
+    segments: segments.md          # optional — A/B/C tiers + scoring rubric
+    exclusions: exclusions.md      # optional — always-skip titles / company types
+
+# ── Defaults & autonomy ──────────────────────────────────────────────────────
+defaults:
+  geography: ["Europe"]            # default target geo when a brief omits one
+  region_expansion: config/region-expansion.yaml   # broad region → country list
+  batch_sizes:
+    apollo_match: 10               # Apollo bulk_match is 10 contacts/request
+    fullenrich: 100               # FullEnrich submits up to 100/batch
+  cost_ceilings:
+    per_run_usd: 50
+    apollo_credits: 2000
+    fullenrich_credits: 1000
+  autonomy:
+    waterfall_between_sources: auto    # auto = run all sources in a waterfall without prompting
+    paid_source_gate: warn             # auto | warn | confirm  (gate before spending on a paid source)
+    pre_enrich_confirm_over:           # confirm before paid enrichment if EITHER threshold is exceeded
+      contacts: 50
+      credits: 500
+    activate_gate: confirm             # auto | warn | confirm — pushing to a live sequencer is irreversible-ish
+  enrich_companies: true               # run the optional company_enrich stage (account intel) before people_search
+
+# ── Waterfalls — ordered provider list per capability ────────────────────────
+# Providers are tried in order; a provider whose key is missing is skipped with a
+# log line. Reorder / swap entries to change behavior WITHOUT editing any agent.
+waterfalls:
+  company_search: [web_research, dropleads, apollo]   # web_research = Sonnet discover-companies fan-out (no key)
+  company_enrich: [web_research, firecrawl]           # account intel; web_research = Claude subagent fan-out (no key)
+  people_search:  [apify, apollo, dropleads, web_research]  # web_research = Sonnet source-people fan-out, fallback for gaps
+  email_enrich:   [apollo, fullenrich]
+  email_validate: [fullenrich]         # used to re-verify "guessed" emails
+  phone_enrich:   [apollo, fullenrich]
+  phone_validate: [clearoutphone]
+  crm_dedupe:     [hubspot]            # optional CRM suppression; skipped unless HUBSPOT_TOKEN is set
+
+# ── Activation ───────────────────────────────────────────────────────────────
+# lemlist is the sender/sequencer ONLY — it is not in any sourcing/enrichment waterfall.
+sequencer: lemlist                     # the single provider used for sequencer_push
+
+# ── Provider discovery ───────────────────────────────────────────────────────
+# auto  = a provider is a candidate iff its manifest.auth.env is set & non-empty
+# [list] = explicit allow-list (lets you disable a provider whose key you have)
+providers_enabled: auto

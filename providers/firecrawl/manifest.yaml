@@ -1,0 +1,32 @@
+# providers/firecrawl/manifest.yaml
+# Optional company_enrich source. By default Claude is the enrichment brain (the
+# enrich-companies workflow) and Firecrawl is better *eyes* — the workflow's subagents
+# scrape clean page content via this adapter's `scrape`/`search` modes when
+# `useFirecrawl: true`. A turnkey `company_enrich` mode (Firecrawl's own /extract) is also
+# offered for users who'd rather Firecrawl do the structuring. Firecrawl v2.
+name: firecrawl
+display_name: Firecrawl
+docs_url: https://docs.firecrawl.dev
+auth:
+  type: bearer
+  env: FIRECRAWL_API_KEY
+base_url: https://api.firecrawl.dev/v2
+
+capabilities:
+  company_enrich:
+    cost: "Firecrawl credits per page scraped / extracted"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/firecrawl/adapter.py
+      modes: [scrape, search, company_enrich, estimate]
+    # Helper modes the enrich-companies workflow uses as cleaner "eyes":
+    #   scrape  {url}            -> {markdown}          (POST /v2/scrape, data.markdown)
+    #   search  {query, limit}   -> {results[]}         (POST /v2/search)
+    # Turnkey mode (Firecrawl extracts the structure itself):
+    #   company_enrich {companies[], custom_fields[]} -> {rows[]}  (POST /v2/extract, async poll)
+    gotchas:
+      - "Auth is 'Authorization: Bearer <FIRECRAWL_API_KEY>'."
+      - "Default pattern: keep extraction on Claude (the enrich-companies workflow) and use scrape/search for content. Firecrawl is eyes, not a second brain."
+      - "/v2/extract is async — submit returns {id}; poll GET /v2/extract/{id} until status completed. The adapter handles the poll."
+      - "Turnkey company_enrich results are NOT source-verified the way the Claude synth+verify pass is — they come back verified:false."

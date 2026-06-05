@@ -1,0 +1,155 @@
+# providers/prospeo/manifest.yaml
+# Prospeo is a full SINGLE-PROVIDER stack: one key covers discovery, sourcing, enrichment,
+# and account intel — company_search + people_search + email_enrich + phone_enrich +
+# company_enrich. Drop it into every waterfall and the whole pipeline runs on one API.
+# Verified against https://prospeo.io/api-docs (2026-06).
+name: prospeo
+display_name: Prospeo
+docs_url: https://prospeo.io/api-docs
+auth:
+  type: header
+  env: PROSPEO_API_KEY
+  header: X-KEY
+base_url: https://api.prospeo.io
+defaults:
+  pacing_notes: "All endpoints are POST + Content-Type: application/json. Credits charged on a matched/returned result."
+  single_provider: "Declares all five pipeline capabilities — a Prospeo-only setup needs no other vendor."
+
+capabilities:
+
+  company_search:
+    cost: "1 credit / request that returns results"
+    method: POST
+    path: /search-company
+    request_template: |
+      {
+        "page": {{page}},
+        "filters": {
+          "company_industry": { "include": {{industries}}, "exclude": [] },
+          "company_location": {{geographies}},
+          "company_headcount_range": {{employee_ranges}},
+          "company.names": {{seed_companies}}
+        }
+      }
+    response:
+      list_path: results              # each item is { company: {...} }
+      pagination: { per_page: 25, has_more: "pagination.current_page < pagination.total_page" }
+      field_map:
+        company.name: company_name
+        company.website: company_domain
+        company.linkedin_url: linkedin_url
+        company.industry: industry
+        company.company_id: provider_ids.prospeo
+    gotchas:
+      - "Results nested as results[].company. 25/page, max 1000 pages."
+      - "Exact company subfield names are on the Company Object schema page — verify if a field comes back null."
+
+  people_search:
+    cost: "free identity (email/mobile NOT returned by search — that's enrich)"
+    method: POST
+    path: /search-person
+    request_template: |
+      {
+        "page": {{page}},
+        "filters": {
+          "person_job_title": {{titles}},
+          "person_seniority": { "include": {{seniorities}}, "exclude": [] },
+          "person_location": {{geographies}},
+          "company.websites": {{domains}},
+          "company.names": {{company_names}}
+        }
+      }
+    response:
+      list_path: results              # each item is { person: {...}, company: {...} }
+      pagination: { per_page: 25, has_more: "pagination.current_page < pagination.total_page" }
+      field_map:
+        person.first_name: first_name
+        person.last_name: last_name
+        person.job_title: title
+        person.linkedin_url: linkedin_url
+        person.person_id: provider_ids.prospeo
+        company.name: company_name
+        company.website: company_domain
+    gotchas:
+      - "Search results OMIT email and mobile (identity only) — enrich separately. Save person.person_id to pass to enrich-person for a fast match."
+      - "Results nested as results[].person / results[].company. 25/page, max 1000 pages."
+      - "Exact person subfield names are on the Person Object schema page — verify if a field is null."
+
+  email_enrich:
+    cost: "credits per revealed email"
+    method: POST
+    path: /enrich-person
+    request_template: |
+      {
+        "data": {
+          "person_id": "{{provider_ids.prospeo}}",
+          "first_name": "{{first_name}}",
+          "last_name": "{{last_name}}",
+          "company_name": "{{company_name}}",
+          "company_website": "{{company_domain}}",
+          "linkedin_url": "{{linkedin_url}}"
+        },
+        "only_verified_email": false
+      }
+    match_key_priority:
+      - { when: "has provider_ids.prospeo", use: ["data.person_id"] }
+      - { when: "linkedin_url is vanity",   use: ["data.linkedin_url"] }
+      - { when: "linkedin_url is member_id OR absent", use: ["data.first_name", "data.last_name", "data.company_name", "data.company_website"] }
+    response:
+      field_map:
+        person.email.email: email
+        person.email.status: email_status_raw      # VERIFIED | UNVERIFIED
+    status_semantics:
+      accept: ["VERIFIED"]
+      reverify_via: { capability: email_validate, statuses: ["UNVERIFIED"] }
+      miss: [null]
+    gotchas:
+      - "Minimum match: linkedin_url alone, OR email alone, OR name + a company identifier — OR a person_id from search-person (fastest)."
+      - "error:true + error_code NO_MATCH => miss; INSUFFICIENT_CREDITS / INVALID_API_KEY / RATE_LIMITED => stop."
+
+  phone_enrich:
+    cost: "credits per revealed mobile"
+    method: POST
+    path: /enrich-person
+    request_template: |
+      {
+        "data": {
+          "person_id": "{{provider_ids.prospeo}}",
+          "first_name": "{{first_name}}",
+          "last_name": "{{last_name}}",
+          "company_name": "{{company_name}}",
+          "company_website": "{{company_domain}}",
+          "linkedin_url": "{{linkedin_url}}"
+        },
+        "enrich_mobile": true
+      }
+    response:
+      field_map:
+        person.mobile.mobile: phone
+        person.mobile.status: phone_status_raw     # VERIFIED | UNVERIFIED
+        person.mobile.mobile_country_code: phone_country
+    gotchas:
+      - "Set enrich_mobile:true or the mobile object is omitted. One enrich-person call with enrich_mobile:true returns BOTH email and mobile."
+
+  company_enrich:
+    cost: "1 credit / matched company (cached 90 days)"
+    method: POST
+    path: /enrich-company
+    request_template: |
+      {
+        "company_website": "{{company_domain}}",
+        "company_linkedin_url": "{{linkedin_url}}"
+      }
+    response:
+      field_map:
+        company.industry: intel.sub_industry
+        company.employee_range: intel.estimated_employees
+        company.founded: intel.founded_year
+        company.revenue_range: intel.revenue_range
+        company.funding.latest_funding_stage: intel.funding_stage
+        company.funding.total_funding: intel.total_raised
+        company.technology.technology_names: intel.tech_stack
+    gotchas:
+      - "Prefer company_website or company_linkedin_url; company_name alone is discouraged."
+      - "Funding events at company.funding.funding_events[]; tech at company.technology.technology_names[]."
+      - "This is structured firmographics — pair with the web_research fan-out when you also want cited 'why now' signals."

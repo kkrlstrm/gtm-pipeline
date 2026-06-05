@@ -1,0 +1,143 @@
+# providers/apollo/manifest.yaml
+# Declarative knowledge the agent reads. The agent issues the curl itself; every
+# provider-specific detail (endpoints, field names, quirks) lives here, not in the
+# agent prompt. `auth.env` is the single source of truth for "do I have this key?"
+name: apollo
+display_name: Apollo.io
+docs_url: https://docs.apollo.io
+auth:
+  type: header
+  env: APOLLO_API_KEY
+  header: x-api-key
+base_url: https://api.apollo.io
+defaults:
+  rate_limit:
+    search: "1 req/s"
+    bulk_match: "100 req/min (10 contacts each => ~1,000 contacts/min)"
+  pacing_notes: >
+    Apollo is behind Cloudflare, which blocks Python urllib/requests (HTTP 403,
+    error 1010). Issue requests with curl (subprocess), not a Python HTTP client.
+  access_notes: >
+    WHY APOLLO: the People/Company Search API does NOT consume credits (only enrichment
+    does), so the free partial search is genuinely free — but API access requires a PAID
+    plan (Basic has no API; Professional+ unlocks it) and a MASTER API key. Lowest paid
+    plan = free search. Apollo also covers email + phone, so one Apollo key can run the
+    whole pipeline (company_search + people_search + email_enrich + phone_enrich).
+  single_provider: "Apollo alone runs stages 0, 1, 3, 4."
+
+capabilities:
+
+  people_search:
+    cost: "free (search returns obfuscated identity; enrichment via email_enrich costs credits)"
+    method: POST
+    path: /api/v1/mixed_people/api_search
+    request_template: |
+      {
+        "q_organization_domains": "{{domains_csv}}",
+        "person_titles": {{titles}},
+        "person_seniorities": {{seniorities}},
+        "person_locations": {{geographies}},
+        "page": {{page}},
+        "per_page": 100
+      }
+    response:
+      list_path: people
+      pagination:
+        # GOTCHA: pagination.total_entries returns 0 even when results exist.
+        # Detect "more pages" by length instead.
+        has_more: "len(people) == per_page"
+      field_map:                          # provider field -> canonical Contact field
+        id: provider_ids.apollo
+        first_name: first_name
+        last_name_obfuscated: last_name   # masked (e.g. "Sc***u"); full name only via email_enrich match
+        title: title
+        headline: headline
+        organization.name: company_name
+        seniority: seniority
+        # NOT returned by search (stay null): linkedin_url, email, full location.
+    gotchas:
+      - "last_name is obfuscated ('Sc***u'); linkedin_url and email are null in search results."
+      - "person_seniorities vocabulary: c_suite, vp, director, manager, senior, entry."
+      - "Save provider_ids.apollo — pass it as `id` to email_enrich (bulk_match) for the fastest, most accurate enrich."
+      - "q_organization_domains is a comma-separated string, not an array."
+
+  company_search:
+    cost: "1 credit / page (100 orgs)"
+    method: POST
+    path: /api/v1/mixed_companies/search
+    request_template: |
+      {
+        "q_organization_keyword_tags": {{keywords}},
+        "organization_locations": {{geographies}},
+        "organization_num_employees_ranges": {{employee_ranges}},
+        "page": {{page}},
+        "per_page": 100
+      }
+    response:
+      list_path: organizations
+      pagination:
+        total_path: pagination.total_pages
+        page_path: pagination.page
+      field_map:
+        name: company_name
+        primary_domain: company_domain
+        linkedin_url: linkedin_url
+        country: country
+        estimated_num_employees: estimated_employees
+        industry: industry
+
+  email_enrich:
+    cost: "1 credit / contact (charged even for null matches)"
+    method: POST
+    path: /api/v1/people/bulk_match
+    batch_size: 10
+    request_template: |
+      {
+        "reveal_personal_emails": false,
+        "reveal_phone_number": false,
+        "details": {{contacts_as_match_keys}}
+      }
+    # THE Apify member-ID rule, encoded as data and enforced by every enricher.
+    match_key_priority:
+      - { when: "has provider_ids.apollo",                    use: ["id"] }
+      - { when: "linkedin_url is vanity",                     use: ["linkedin_url"] }
+      - { when: "linkedin_url is member_id OR absent",        use: ["first_name", "last_name", "organization_name", "domain"] }
+    response:
+      list_path: matches
+      field_map:
+        email: email
+        email_status: email_status        # verified | guessed | extrapolated | unavailable
+        linkedin_url: resolved_linkedin_url   # BONUS data — vanity URL; save it for downstream matching
+        last_name: resolved_last_name         # BONUS data — full (unobfuscated) last name; save it
+    status_semantics:
+      accept: ["verified"]
+      reverify_via:
+        capability: email_validate
+        statuses: ["guessed", "extrapolated"]
+      miss: ["unavailable", null]
+
+  phone_enrich:
+    cost: "1 credit / match"
+    method: POST
+    path: /api/v1/people/match        # SINGLE endpoint — bulk_match does NOT support phone
+    batch_size: 1
+    request_template: |
+      {
+        "reveal_phone_number": false,
+        "reveal_personal_emails": false
+      }
+    match_key_priority:                # same member-ID rule as email_enrich
+      - { when: "has provider_ids.apollo",             use: ["id"] }
+      - { when: "linkedin_url is vanity",              use: ["linkedin_url"] }
+      - { when: "linkedin_url is member_id OR absent", use: ["first_name", "last_name", "organization_name", "domain"] }
+    response:
+      list_path: person.phone_numbers   # array of {raw_number, sanitized_number, type, status}
+      field_map:
+        sanitized_number: phone         # E.164
+        type: phone_type                # mobile | work_direct | work_hq | personal
+        status: phone_status
+    # canonical phone_type mapping: mobile->mobile, work_direct->direct_dial, work_hq->switchboard
+    gotchas:
+      - "reveal_phone_number:true REQUIRES a webhook_url and errors without one — leave it false."
+      - "With reveal=false, Apollo still returns person.phone_numbers if already in its DB — check the array."
+      - "bulk_match cannot reveal phones (same webhook requirement) — use the single people/match endpoint, 0.5s spacing."

@@ -1,0 +1,27 @@
+# Segments — tiers & scoring rubric   (OPTIONAL)
+#
+# Copy to context/segments.md if you want the qualifier to tier and score contacts.
+# If absent, the qualifier still runs but treats all in-ICP contacts as one tier.
+# The qualifier keeps the MECHANISM (classify company → score contact → present for
+# human review); it reads the CRITERIA from this file.
+
+## Segment A (primary — pursue aggressively)
+<Criteria that put an account in your best tier. e.g. "200–2,000 employees,
+B2B SaaS, has RevOps, in a default-geography country">
+
+## Segment B (adjacent — pursue selectively)
+<Criteria for a worth-it-but-not-ideal account.>
+
+## Segment C (exclude / deprioritize)
+<Criteria that knock an account out. Hard exclusions also belong in exclusions.md.>
+
+## Scoring rubric (0–10)
+- Persona match: 0–4   (exact title+seniority = 4; adjacent = 2; weak = 0)
+- Company fit:   0–3   (Segment A = 3; B = 1–2; C = 0)
+- Data completeness: 0–2   (has linkedin_url + company_domain = 2)
+- Novelty:       0–1   (not already in your CRM / not previously contacted = 1)
+
+## Thresholds
+- QUALIFY  >= 7
+- MAYBE    4–6   (surface for human review)
+- SKIP     <= 3

@@ -1,0 +1,58 @@
+# providers/fullenrich/manifest.yaml
+# Script-backed provider. FullEnrich is async (submit -> poll) and its response
+# is deeply nested with occasional control characters, so the agent shells out to
+# adapter.py (which emits canonical JSON) instead of issuing raw curl.
+name: fullenrich
+display_name: FullEnrich
+docs_url: https://docs.fullenrich.com
+auth:
+  type: bearer
+  env: FULLENRICH_API_KEY
+base_url: https://app.fullenrich.com
+defaults:
+  pacing_notes: "Bulk submit up to 100 contacts; enrichment of a full batch takes ~60-90s."
+
+capabilities:
+
+  email_enrich:
+    cost: "1 credit / contact (emails)"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/fullenrich/adapter.py
+      modes: [run, estimate]
+    # The adapter emits canonical per-contact output, but the source response shape
+    # is documented here so the mapping is auditable.
+    response:
+      field_map:
+        "data[i].contact_info.most_probable_work_email.email": email
+        "data[i].contact_info.most_probable_work_email.status": email_status_raw
+    status_semantics:
+      accept: ["DELIVERABLE", "HIGH_PROBABILITY"]
+      accept_with_flag: ["CATCH_ALL"]      # accepted but tagged catch_all
+      miss: ["INVALID", "INVALID_DOMAIN", null]
+    # Canonical email_status the adapter normalizes to:
+    #   DELIVERABLE|HIGH_PROBABILITY -> "deliverable"
+    #   CATCH_ALL                    -> "catch_all"
+    #   INVALID|INVALID_DOMAIN|none  -> "invalid"
+    gotchas:
+      - "domain is REQUIRED on every contact — a single empty domain fails the ENTIRE batch (error.enrichment.domain.empty). The adapter EXCLUDES empty-domain rows (it does not fail them); upstream must backfill domains first."
+      - "Response email is nested at data[i].contact_info.most_probable_work_email.email — NOT at the top level of each data entry."
+      - "Responses can contain raw control characters; parse with json.loads(strict=False)."
+      - "This is a self-validating enricher: its status IS the validation, so no separate email_validate call is needed for FullEnrich results."
+
+  phone_enrich:
+    cost: "10 credits / contact (phones — expensive; use as fallback only)"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/fullenrich/adapter.py
+      modes: [run, estimate]
+    response:
+      field_map:
+        "data[i].contact_info.most_probable_phone.number": phone
+        "data[i].contact_info.most_probable_phone.region": phone_region
+    gotchas:
+      - "most_probable_phone is a DICT {number, region}, not a string — adapter extracts .number and strips spaces to E.164; falls back to contact_info.phones[0]."
+      - "Same empty-domain batch-fail rule as email_enrich — adapter excludes empty-domain rows."
+      - "FullEnrich does not classify line type — validate downstream (e.g. clearoutphone) to confirm and to learn mobile/direct."

@@ -1,0 +1,75 @@
+# providers/web_research/manifest.yaml
+# A BUILTIN provider — not an HTTP API. The agent fulfills these capabilities with its
+# own WebSearch / WebFetch tools, so there is no key. `builtin: true` + no auth.env means
+# it is ALWAYS available (never skipped for a missing key). Useful as a free, always-on
+# floor in the company_search waterfall and for resolving LinkedIn URLs.
+name: web_research
+display_name: Web Research (built-in)
+builtin: true
+auth:
+  type: none            # no env var — always available
+
+capabilities:
+
+  company_search:
+    cost: "free (your own search/fetch quota) + subagent tokens"
+    implemented_by: builtin       # company-discovery runs the discover-companies workflow
+    how: >
+      The default discovery engine for web research. The company-discovery agent runs the
+      bundled `discover-companies` workflow, which fans out one Sonnet `company-researcher`
+      subagent per search ANGLE (a look-alike per seed company, or each segment/geography),
+      then merges + dedupes by domain. Token-efficient: angle results stay in the script;
+      only the merged, cited company list returns. Best for look-alike expansion and for
+      small/niche/renamed firms that API databases miss.
+    field_map:
+      company_name: company_name
+      company_domain: company_domain
+      reason: discovery_reason
+      source_url: sources
+    gotchas:
+      - "Costs subagent tokens — honor the cost gate on broad discovery."
+      - "company-researcher returns real companies only and cites a source; confirm the domain resolves."
+
+  people_search:
+    cost: "free (your own search/fetch quota) + subagent tokens"
+    implemented_by: builtin       # contact-sourcer runs the source-people workflow
+    how: >
+      The web-research path for sourcing. The contact-sourcer agent runs the bundled
+      `source-people` workflow, which fans out one Sonnet `people-sourcer` subagent per
+      company to find people matching the target titles (name, title, LinkedIn URL), cited.
+      Use as a waterfall fallback for companies the API providers (apify/apollo/…) missed,
+      or as a no-API-key way to source. Identity only — no email/phone.
+    field_map:
+      first_name: first_name
+      last_name: last_name
+      title: title
+      linkedin_url: linkedin_url
+      source_url: sources
+    gotchas:
+      - "Costs subagent tokens (one fan-out per company) — usually last in the people_search waterfall."
+      - "Returns vanity LinkedIn URLs when found; verifies current employment; never invents a person."
+
+  linkedin_url_lookup:
+    cost: "free (your own search/fetch quota)"
+    implemented_by: builtin
+    how: >
+      Given first/last name + company (+ title), search `site:linkedin.com/in <name> <company>`
+      and confirm the result is CURRENTLY at the target company before returning the URL.
+      Use to recover a vanity LinkedIn URL for obfuscated/member-ID contacts so downstream
+      matching works.
+    gotchas:
+      - "Return a URL only when identity is confident — a wrong LinkedIn URL is worse than none."
+
+  company_enrich:
+    cost: "free (your own search/fetch quota) + subagent tokens"
+    implemented_by: builtin       # the company-enricher agent runs the enrich-companies workflow
+    how: >
+      The DEFAULT company_enrich engine. The company-enricher agent runs the bundled
+      `enrich-companies` workflow, which fans out Claude subagents per company across Fire
+      Enrich's dimensions (basics / financial / tech / leadership / signals + custom), then
+      synthesizes + source-verifies each into one cited intel record. Pure Claude + web
+      tools — no extra key. If `firecrawl` is also keyed, the workflow can use it for cleaner
+      page content (useFirecrawl), but Claude stays the brain.
+    gotchas:
+      - "Costs subagent tokens (one fan-out per company) — honor the cost gate on large lists."
+      - "Every field must be source-cited; subagents leave a field empty rather than guess."

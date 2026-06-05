@@ -1,0 +1,30 @@
+# ── Secrets — never commit ───────────────────────────────────────────────────
+.env
+.env.local
+*.env
+!.env.example
+
+# Adopter's resolved config may be kept local; the framework ships only the example
+# (uncomment the next line if you prefer to keep your wiring private)
+# gtm.config.yaml
+
+# ── Local storage backend data ───────────────────────────────────────────────
+.gtm-data/
+
+# ── Service-account / credential JSON ────────────────────────────────────────
+*-service-account.json
+service-account*.json
+credentials.json
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── OS / editor cruft ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

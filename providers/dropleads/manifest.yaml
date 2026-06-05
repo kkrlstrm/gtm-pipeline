@@ -1,0 +1,56 @@
+# providers/dropleads/manifest.yaml
+# Spec-only people_search. Returns full names + LinkedIn URLs from a free search
+# (unlike Apollo). Masked email/phone fields exist but must NOT be used (enrichment
+# is a separate paid product not wired here).
+name: dropleads
+display_name: Dropleads
+auth:
+  type: header
+  env: DROPLEADS_API_KEY
+  header: X-API-Key
+base_url: https://prime.dropleads.io
+defaults:
+  pacing_notes: "Add ~1s between pages."
+  access_notes: >
+    WHY DROPLEADS: the people-search endpoint returns full names + LinkedIn URLs and does
+    NOT spend enrichment credits — it's the free partial-search complement to Apollo. API
+    access requires a paid account (entry ~$29 / 2,000 credits; credits are spent only on
+    enrichment, which this manifest does NOT use — masked email/phone are ignored).
+
+capabilities:
+  people_search:
+    cost: "free (search). Do NOT call the enrichment endpoints — masked fields are paid."
+    method: POST
+    path: /api/v1/prime-db/leads/search
+    request_template: |
+      {
+        "filters": {
+          "companyNames": {{company_names}},
+          "jobTitles": {{titles}},
+          "seniority": {{seniorities}},
+          "personalCountries": {"include": {{geographies}}, "exclude": []}
+        },
+        "pagination": { "page": {{page}}, "limit": 100 }
+      }
+    response:
+      list_path: data.leads          # NESTED — not top-level leads[]
+      pagination:
+        total_path: pagination.totalPages
+        page_path: pagination.page
+      field_map:
+        id: provider_ids.dropleads
+        fullName: full_name          # single string — split on first space for first/last
+        title: title                 # contains headline/bio text — parse the actual role
+        linkedinUrl: linkedin_url
+        companyName: company_name
+        industry: industry
+        companySize: estimated_employees
+        city: location
+        country: country
+    gotchas:
+      - "Results are nested at data.leads[], and totals at data.total / pagination.totalPages."
+      - "fullName is one string — split on the first space into first_name/last_name."
+      - "title holds headline/bio text, not just the role — extract the role."
+      - "seniority vocabulary: C-Level, VP, Director, Manager, Senior, Entry, Intern."
+      - "country filter format: {include:[], exclude:[]}."
+      - "email/phone come back masked — NEVER use them (separate paid enrichment)."

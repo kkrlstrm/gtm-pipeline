@@ -1,0 +1,68 @@
+# providers/heyreach/manifest.yaml
+# LinkedIn sequencer example — an alternative sequencer_push target for LinkedIn-first
+# outreach (vs lemlist/smartlead for email). Spec-only multi-step flow. Verified against
+# the HeyReach public API (https://www.heyreach.io/blog/campaign-api + Postman docs, 2026-06).
+#
+# IMPORTANT: HeyReach is LinkedIn automation. Every lead MUST have a LinkedIn profileUrl,
+# and each lead is paired with a connected sender account. This is the right sequencer
+# when your export has linkedin_url on the leads; use an email sequencer otherwise.
+name: heyreach
+display_name: HeyReach (LinkedIn)
+docs_url: https://documenter.getpostman.com/view/23808049/2sA2xb5F75
+auth:
+  type: header
+  env: HEYREACH_API_KEY
+  header: X-API-KEY            # NOT a Bearer token
+base_url: https://api.heyreach.io/api/public
+defaults:
+  rate_limit: { all: "300 req/min" }
+
+capabilities:
+  sequencer_push:
+    cost: "free to push; sending uses your HeyReach seats"
+    prerequisites:
+      - "At least one connected LinkedIn sender account — list via POST /li_account/GetAll and capture its id as linkedInAccountId."
+      - "Leads MUST have a LinkedIn profileUrl (no profileUrl => cannot be pushed)."
+    steps:
+      - name: create_campaign        # created in DRAFT status
+        method: POST
+        path: /campaign/Create
+        body: |
+          {
+            "name": "{{campaign_name}}",
+            "linkedInAccountIds": [ {{account_ids}} ],
+            "sequence": "<optional PublicSequenceNodeDto>"
+          }
+        capture: { campaign_id: campaignId }
+        note: "Campaign is created in DRAFT; it is not sending yet."
+      - name: add_leads
+        method: POST
+        path: /campaign/AddLeadsToCampaignV2
+        body: |
+          {
+            "campaignId": {{campaign_id}},
+            "accountLeadPairs": [
+              { "linkedInAccountId": {{account_id}},
+                "lead": "<one lead object per export row, mapped via field_map>" }
+            ]
+          }
+      - name: start_campaign         # REQUIRED to activate the DRAFT campaign
+        method: POST
+        path: /campaign/Start        # verify exact path against the Postman doc (a.k.a. StartCampaign)
+        body: { "campaignId": {{campaign_id}} }
+    field_map:                       # canonical export row -> heyreach lead field
+      first_name: firstName
+      last_name: lastName
+      linkedin_url: profileUrl       # REQUIRED
+      company_name: companyName
+      title: position
+      email: emailAddress
+      location: location
+    response:                        # from AddLeadsToCampaignV2 (confirm exact keys in-tool)
+      imported_path: addedCount
+    gotchas:
+      - "Auth header is X-API-KEY (not 'Authorization: Bearer')."
+      - "LinkedIn-only: drop any lead without profileUrl before pushing."
+      - "Campaign is created in DRAFT — you MUST call the start step to begin sending."
+      - "Each lead pairs with a sender account via accountLeadPairs[].linkedInAccountId; round-robin across accounts if you have several."
+      - "Rate limit 300 req/min."

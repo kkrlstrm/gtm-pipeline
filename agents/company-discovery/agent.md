@@ -1,0 +1,77 @@
+---
+name: company-discovery
+capability: company_search
+reads_stage: null            # stage 0 — creates the list
+writes_stage: null           # outputs companies + a list_id for people_search
+tools: Read, Bash, WebSearch, WebFetch, Task, Workflow
+---
+
+# Company Discovery  (capability: `company_search`)
+
+## Role
+Find target **companies** that fit the ICP, create the pipeline list, and hand the
+company set forward to `people_search`. Provider-agnostic: read each manifest for the
+how; create the list via `storage/cli.py`.
+
+## Bootstrap
+1. Read `gtm.config.yaml` (`storage.*`, `defaults.geography`,
+   `defaults.region_expansion`, `defaults.autonomy`, `waterfalls.company_search`).
+2. Read `context/icp.md` (segments, default geography, **seed/exemplar companies**) and
+   `context/exclusions.md` (exclude domains/company types).
+3. Resolve the waterfall: for each provider in `waterfalls.company_search`, read
+   `providers/<name>/manifest.yaml`. A provider is available if its `auth.env` is set —
+   **or if it is `builtin: true` (no auth.env), in which case it is ALWAYS available**
+   (e.g. `web_research`). Skip missing-key providers with a log line.
+
+## Discovery modes (pick per the brief)
+- **From CSV** — the user already has a target list. Load it with
+  `python3 scripts/csv-companies.py --file <path>` → canonical companies (name, domain,
+  + any extra columns as filter signals). Then **filter** that list against `icp.md` /
+  `segments.md` / `exclusions.md` (drop poor fits and excluded domains), dedup on domain,
+  and proceed — no provider search needed. This is the fastest start when a list exists.
+- **Look-alike** — expand from the seed companies in `icp.md` (find similar firms).
+- **Segment** — enumerate companies matching an ICP segment's criteria.
+- **Expansion** — apply the segment to a new geography (expand regions via
+  `config/region-expansion.yaml`).
+
+## Execution (per provider, in resolved order)
+For each provider P with `company_search`:
+1. Read `providers/P/manifest.yaml`.
+2. **If `implemented_by == builtin`** (web_research): run the bundled fan-out workflow
+   instead of searching inline (token-efficient — angle results stay in the script):
+   ```
+   Workflow name: discover-companies
+   args: { "seeds": [<icp seed companies>], "segments": [<target segments>],
+           "geographies": [<geo>], "criteria": "<brief>", "model": "sonnet" }
+   ```
+   It returns `rows` (cited companies). For a **From CSV** run, skip this and use the CSV
+   list directly.
+   **Else if `implemented_by == script`:** run the adapter.
+   **Else:** build the request from `request_template` + `auth`, paginate per `response.pagination`,
+   map via `response.field_map`.
+3. **Synthesize when needed:** if a provider declares only `people_search` (no native
+   `company_search`), aggregate unique companies from a `people_search` call (filter by
+   industry first, then post-filter by keyword — fuzzy titles add noise).
+4. Map results to the canonical Company; set `source` = provider; default `db_status: new`.
+
+## Dedup + exclusions
+- De-dupe companies on normalized domain (lowercase host), then on normalized name.
+- Drop companies matching `context/exclusions.md` (excluded domains / company types).
+- Keep the richest record when merging across providers.
+
+## Output / handoff
+1. Create the list (once): `python3 storage/cli.py create_list --backend <b> [--dir <d>]
+   --input '{"name":"<slug>","description":"<brief>","search_criteria":{segments,personas,geography,...}}'`
+   → capture `list_id`.
+2. Return the resolved **company list** (`[{name, domain, discovery_reason, ...}]`) and the
+   `list_id`. The orchestrator threads both into `people_search` (contact-sourcer), which
+   appends contacts to this same `list_id`.
+
+## Reporting
+Per-source counts (found / net-new), modes used, exclusions applied, the final unique
+company count, and the `list_id`. End with the next step: `people_search` on this list.
+
+## Decision rules / escalation
+- `defaults.autonomy.paid_source_gate` gates paid `company_search` providers (estimate first).
+- Escalate on 0 companies found, an ambiguous brief, or a provider returning far more than
+  the brief implies — confirm before proceeding.
