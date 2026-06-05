@@ -192,6 +192,12 @@ enrich, phone enrich, CRM dedupe, sequencer push. Swap any of them by editing
 `gtm.config.yaml`, never the agents ([how](docs/swapping-providers.md)). A provider is used
 only if its key is set.
 
+They're also **additive, not just swappable**: list 1, 2, 3, 4, or all of them in a stage and
+**whichever keys you bring run together** — search stages union + dedup across providers, enrich
+stages waterfall and stop at the first valid result per contact. One key runs the pipeline solo;
+add another and it slots into the same waterfall, no agent changes
+([stacking](docs/swapping-providers.md#you-can-stack-as-many-as-you-want-additive-waterfalls)).
+
 | Provider | Capabilities | Kind |
 |---|---|---|
 | `web_research` | company_search, linkedin_url_lookup, company_enrich, people_search | builtin (no key) |
