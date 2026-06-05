@@ -81,6 +81,13 @@ See it run end-to-end on a synthetic campaign in
   pipeline — unkeyed providers are skipped with a log line, no edits required.
 - **Two storage backends, identical semantics.** `local` (zero-setup files) or
   `postgres` (shared DB, cross-campaign dedup). Same stage handoffs either way.
+- **Built for parallel agents, tuned for token spend.** The heavy stages (discovery,
+  sourcing, account intel, scoring) run as parallel Claude subagent fan-outs via bundled
+  workflows — the workflow script holds the loop and keeps every intermediate result in
+  *script variables*, so only the final answer ever returns to the main context window.
+  Work is model-routed: **Sonnet** for research/sourcing, **Haiku** for high-volume scoring,
+  with focused, tool-scoped subagents. You get breadth (many companies/contacts at once)
+  without flooding context or paying Opus prices for cheap work.
 - **Secrets never leave your machine except to each provider's own API.** See
   [SECURITY.md](SECURITY.md).
 
