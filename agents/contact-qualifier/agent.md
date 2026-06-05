@@ -47,7 +47,12 @@ applies is exactly the logic below — pass the context files through; do not re
    and match by normalized domain — funding stage, employee count, tech stack, and "why now"
    signals sharpen the segment and the company-fit score far beyond title alone.
 3. **Persona match:** match title/seniority to a persona in `personas.md` (honor its
-   `Disambiguation` notes — e.g. a role that means different things in different orgs).
+   `Disambiguation` notes — e.g. a role that means different things in different orgs). If the
+   list's `search_criteria.expansion` is present, also honor its `roles[].exclude_senses` — the
+   polysemous senses the orchestrator flagged out of scope (a "Principal Engineer" or PE-firm
+   "Principal" when the role is a K-12 Principal) → demote or SKIP. This is the precision half of
+   the same expansion the sourcer used for recall: it widened the net deliberately, you trim the
+   wrong senses deliberately.
 4. **Score 0–10** using the rubric in `segments.md` (e.g. persona match 0–4, company fit
    0–3, data completeness 0–2, novelty 0–1) and apply its thresholds
    (e.g. QUALIFY ≥ 7, MAYBE 4–6, SKIP ≤ 3).

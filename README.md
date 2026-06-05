@@ -67,7 +67,10 @@ generated through the actual `storage/cli.py` + `show-plan.py`.
 - **State survives the pipeline.** Every stage writes canonical records under one `list_id`,
   so discovery → sourcing → qualify → enrichment → activation never "research it and lose it."
 - **Judgment is explicit and reviewable.** Personas, segments, exclusions, and the 0–10
-  rubric live in `context/*.md` — versioned, not in someone's head.
+  rubric live in `context/*.md` — versioned, not in someone's head. Ambiguous titles expand at
+  brief time (`principal` → head of school, headteacher, …) and surface at Gate #1 to edit, so
+  recall isn't lost to a literal-string match
+  ([role expansion](docs/role-expansion.md)).
 - **Expensive work is routed.** Research/sourcing on Sonnet subagents, high-volume scoring on
   Haiku, intermediate results kept out of the main context (below).
 - **Spend and sends are gated.** Plan → qualify review → pre-paid-enrichment → activation,
@@ -236,6 +239,7 @@ Run `python3 scripts/show-plan.py` to see which ones your current keys + config 
 - [docs/quickstart.md](docs/quickstart.md) — setup, the four gates, storage backends
 - [docs/single-provider.md](docs/single-provider.md) — run on one key (Apollo / Prospeo); why the free-search providers
 - [docs/capabilities.md](docs/capabilities.md) — capability taxonomy + canonical records + storage ops
+- [docs/role-expansion.md](docs/role-expansion.md) — ambiguous titles/industries → an explicit, gate-reviewed set (the recall fix)
 - [docs/swapping-providers.md](docs/swapping-providers.md) — config-only provider swaps
 - [docs/writing-a-provider.md](docs/writing-a-provider.md) — add a manifest / adapter
 

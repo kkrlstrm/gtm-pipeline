@@ -31,9 +31,16 @@ enabled provider's manifest for the how, and call `storage/cli.py` for all write
 ## Inputs (canonical)
 From the orchestrator (or the user):
 - `companies[]` — `{name, domain?}` (domains may be partial; you will backfill).
-- Persona(s) or explicit `titles[]` / `seniorities[]`. If given a persona name,
-  resolve its `Titles:` and `Seniority:` from `context/personas.md` — do NOT invent
-  a title table. If given an ICP type with no persona, map via `personas.md`.
+- **Titles/seniority — prefer the frozen expansion profile.** If the list's
+  `search_criteria.expansion` is present (the orchestrator generated it at brief time and the
+  user approved it at Gate #1), use its `roles[].titles` and `roles[].seniority` as the search
+  set — this is the equivalence class ("Principal" → "Head of School", …) already reviewed and
+  frozen. Re-read it from the list when in doubt (it is the source of truth); the orchestrator
+  also passes it in your inputs. **Union** it with any persona `Titles:`/`Also-known-as:` in
+  `context/personas.md` (hand-authored variants always count). If there is **no** expansion
+  profile (legacy/standalone run, or `role_expansion: off`), fall back to resolving the
+  persona's `Titles:` and `Seniority:` from `personas.md`. Either way, **do NOT invent a title
+  table yourself** — you read an approved set; inference is the orchestrator's job (§1a).
 - `geographies[]` — default to `config.defaults.geography` if omitted.
 - `list_id` — if the orchestrator already called `create_list`, reuse it; otherwise
   create one (below) and return the new `list_id`.
@@ -96,7 +103,9 @@ enrichers will exclude (not fail) them.
 ## Storage write (ops only — never raw SQL/file IO)
 1. If you do not already have a `list_id`, create one:
    `python3 storage/cli.py create_list --backend <b> [--dir <d>] --input
-   '{"name":"<slug>","description":"<brief>","search_criteria":{...}}'` → capture `list_id`.
+   '{"name":"<slug>","description":"<brief>","search_criteria":{...,"expansion":{...}}}'`
+   → capture `list_id`. If the orchestrator passed an approved `expansion` profile, persist
+   it under `search_criteria.expansion` so downstream stages read the same frozen set.
 2. Write contacts:
    `python3 storage/cli.py upsert_contacts --backend <b> [--dir <d>] --input
    '{"list_id":<id>,"contacts":[<canonical Contact>,...]}'`.

@@ -6,16 +6,23 @@
 #
 # Tip: include local-language and regional title variants (e.g. German
 # "Geschäftsführer" for Managing Director) — providers match on the literal title.
+#
+# You do NOT have to enumerate every synonym by hand: at brief time the orchestrator
+# infers a title equivalence set for the requested role and shows it at Gate #1 (see
+# docs/role-expansion.md). Use the optional `Also-known-as:` field below to SEED or pin
+# variants you always want — they're unioned with the inferred set and always win.
 
 ## Persona: <Economic Buyer>
 Titles: [<title keywords, incl. variants>, e.g. "VP Finance", "CFO", "Finance Director", "Kaufmännischer Leiter"]
-Seniority: [VP, CxO, Director]
+Also-known-as: [<optional — synonyms to always include, e.g. "Head of Finance", "Finanzvorstand">]
+Seniority: [VP, CxO, Director]   # use a vertical-appropriate band — a K-12 principal is a "school-leader", not a "Director"
 Why relevant: <one line — what this person owns that makes them buy/champion>
 Disambiguation: <how to tell a real match from a false one, e.g. "'Controller' at a
   large enterprise ≈ analyst, not a buyer — require Director+">
 
 ## Persona: <Champion / Technical Evaluator>
 Titles: [<...>]
+Also-known-as: [<optional synonyms>]
 Seniority: [Manager, Senior, Director]
 Why relevant: <...>
 Disambiguation: <...>

@@ -38,6 +38,7 @@ defaults:
     apollo_credits: 2000
     fullenrich_credits: 1000
   autonomy:
+    role_expansion: confirm            # off | confirm | auto — orchestrator infers title/industry/org variants from the brief (Principal → Head of School, …) so providers don't miss synonyms. confirm = surface at Gate #1 to edit (never silent); off = literal persona titles only
     waterfall_between_sources: auto    # auto = run all sources in a waterfall without prompting
     paid_source_gate: warn             # auto | warn | confirm  (gate before spending on a paid source)
     pre_enrich_confirm_over:           # confirm before paid enrichment if EITHER threshold is exceeded

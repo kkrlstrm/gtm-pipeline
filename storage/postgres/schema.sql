@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS pipeline_lists (
     list_name VARCHAR(500) NOT NULL,
     description TEXT,
     created_by VARCHAR(255) DEFAULT 'unknown',
-    search_criteria JSONB,  -- {titles, seniority, geography, persona, companies}
+    search_criteria JSONB,  -- {titles, seniority, geography, persona, companies, expansion}
     status VARCHAR(50) DEFAULT 'active',  -- active, completed, archived
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
