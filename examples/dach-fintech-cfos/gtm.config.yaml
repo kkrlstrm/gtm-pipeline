@@ -1,0 +1,39 @@
+# Example config for the DACH fintech CFOs run.
+# Keyed providers for this run: APOLLO_API_KEY, FULLENRICH_API_KEY, LEMLIST_API_KEY,
+# HUBSPOT_TOKEN. web_research is builtin (no key). show-plan.py output is in provider-plan.txt.
+version: 1
+
+storage:
+  backend: local
+  local:
+    dir: ./.gtm-data
+
+context:
+  dir: ./context
+  files: { icp: icp.md, personas: personas.md, segments: segments.md, exclusions: exclusions.md }
+
+defaults:
+  geography: ["DACH"]
+  region_expansion: config/region-expansion.yaml
+  batch_sizes: { apollo_match: 10, fullenrich: 100 }
+  cost_ceilings: { per_run_usd: 50, apollo_credits: 2000, fullenrich_credits: 1000 }
+  autonomy:
+    waterfall_between_sources: auto
+    paid_source_gate: warn
+    pre_enrich_confirm_over: { contacts: 50, credits: 500 }
+    activate_gate: confirm
+  enrich_companies: true
+
+waterfalls:
+  company_search: [web_research, apollo]
+  company_enrich: [web_research]
+  people_search:  [apollo, web_research]
+  email_enrich:   [apollo, fullenrich]
+  email_validate: [fullenrich]
+  phone_enrich:   [apollo, fullenrich]
+  phone_validate: []
+  crm_dedupe:     [hubspot]
+
+sequencer: lemlist
+
+providers_enabled: auto

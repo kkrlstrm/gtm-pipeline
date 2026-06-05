@@ -15,6 +15,61 @@ company_search → company_enrich → people_search → qualify → email_enrich
 …producing a campaign-ready, deduplicated contact list pushed into the sequencer
 of your choice.
 
+## Architecture
+
+One brief flows down five layers — inputs → brain → provider seam → storage → out. Agents
+speak only in capabilities and read provider manifests, so you swap providers by editing
+config, never code. Full write-up + ASCII fallback in [docs/architecture.md](docs/architecture.md).
+
+```mermaid
+flowchart TD
+  brief["🗣️ Plain-English brief<br/>/gtm 'target DACH fintech CFOs…'"]
+
+  subgraph IN["① Your inputs — bring your own"]
+    ctx["context/*.md<br/>icp · personas · segments · exclusions"]
+    cfg["gtm.config.yaml<br/>waterfalls · gates · storage"]
+    env[".env<br/>provider keys — local only, never sent"]
+  end
+
+  subgraph BRAIN["② Framework brain — speaks only in capabilities"]
+    orch["Orchestrator<br/>interpret → plan → 4 gates → thread list_id"]
+    agents["Capability agents (one per stage)<br/>company-discovery · company-enricher · contact-sourcer<br/>contact-qualifier · email-finder · phone-finder · activate"]
+    orch --> agents
+  end
+
+  subgraph SEAM["③ Provider seam — swap by config, not code"]
+    man["providers/*/manifest.yaml<br/>auth · endpoints · field_map · gotchas"]
+    api["API providers<br/>apollo · prospeo · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
+    builtin["web_research — builtin, no key"]
+    wf["Claude subagent fan-out (token-efficient)<br/>discover-companies · source-people · enrich-companies · score-leads<br/>Sonnet research/sourcing · Haiku scoring"]
+    man --> api
+    man --> builtin --> wf
+  end
+
+  subgraph TRUTH["④ Storage — source of truth, byte-identical dedup"]
+    cli["storage/cli.py<br/>create_list · upsert · advance_stage · export · crossref"]
+    db[("local files  or  postgres")]
+    cli --> db
+  end
+
+  subgraph OUT["⑤ Out"]
+    csv["📄 export.csv — campaign-ready list"]
+    seq["📣 Sequencer<br/>lemlist · smartlead · heyreach"]
+    crm["🗂️ HubSpot CRM — dedupe / suppression"]
+  end
+
+  brief --> orch
+  IN --> orch
+  agents -->|read knowledge| man
+  agents <-->|ops only| cli
+  agents -. optional dedupe .-> crm
+  cli --> csv
+  agents -->|activate| seq
+```
+
+See it run end-to-end on a synthetic campaign in
+[examples/dach-fintech-cfos/](examples/dach-fintech-cfos/).
+
 ## Why it's different
 
 - **Swap providers by editing config, not prompts.** Every provider is a declarative
@@ -88,6 +143,8 @@ You can run the **whole pipeline on one key** (Apollo or Prospeo) — see
 
 ## Docs
 
+- [examples/dach-fintech-cfos/](examples/dach-fintech-cfos/) — a complete worked run (ICP, config, provider plan, export CSV, activation log)
+- [docs/architecture.md](docs/architecture.md) — the layered diagram (brief → … → sequencer/CRM)
 - [docs/quickstart.md](docs/quickstart.md) — setup, the four gates, storage backends
 - [docs/single-provider.md](docs/single-provider.md) — run on one key (Apollo / Prospeo); why the free-search providers
 - [docs/capabilities.md](docs/capabilities.md) — capability taxonomy + canonical records + storage ops

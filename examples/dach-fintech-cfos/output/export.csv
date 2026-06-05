@@ -1,0 +1,5 @@
+first_name,last_name,full_name,title,seniority,company_name,company_domain,linkedin_url,country,location,email,phone,phone_type,source,matched_persona,qualification_score
+Lena,Hoffmann,Lena Hoffmann,CFO,,Nimbus Pay,nimbuspay.example,https://linkedin.com/in/lena-hoffmann-cfo,Germany,Berlin,lena.hoffmann@nimbuspay.example,+49 30 5550 1234,mobile,apollo,Economic Buyer,9
+Marco,Brunner,Marco Brunner,Chief Financial Officer,,Helvetia Ledger,helvetialedger.example,https://linkedin.com/in/marco-brunner,Switzerland,Zurich,marco.brunner@helvetialedger.example,+41 44 555 0199,direct_dial,apollo,Economic Buyer,8
+Sophie,Maier,Sophie Maier,CFO,,Tirol Treasury,tiroltreasury.example,https://linkedin.com/in/sophie-maier,Austria,Vienna,sophie.maier@tiroltreasury.example,+43 1 5550 0177,mobile,web_research,Economic Buyer,8
+Jonas,Gruber,Jonas Gruber,Head of Compliance,,Tirol Treasury,tiroltreasury.example,https://linkedin.com/in/jonas-gruber,Austria,Vienna,jonas.gruber@tiroltreasury.example,,,web_research,Compliance Champion,6

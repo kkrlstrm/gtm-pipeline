@@ -1,0 +1,22 @@
+storage backend : local
+providers_enabled: auto
+
+company_search  : web_research -> apollo
+                    [web_research  apollo]
+company_enrich  : web_research
+                    [web_research]
+people_search   : apollo -> web_research
+                    [apollo  web_research]
+qualify         : context-driven (no provider)
+email_enrich    : apollo -> fullenrich
+                    [apollo  fullenrich]
+email_validate  : fullenrich
+                    [fullenrich]
+phone_enrich    : apollo -> fullenrich
+                    [apollo  fullenrich]
+phone_validate  : (none)   ⚠ NO AVAILABLE PROVIDER
+                    [—]
+crm_dedupe      : hubspot
+                    [hubspot]
+
+sequencer       : lemlist (ready)
