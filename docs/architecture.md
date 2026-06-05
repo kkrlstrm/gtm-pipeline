@@ -17,7 +17,7 @@ flowchart TD
   end
 
   subgraph BRAIN["② Framework brain — speaks only in capabilities"]
-    orch["Orchestrator<br/>interpret → plan → 4 gates → thread list_id"]
+    orch["Orchestrator<br/>interpret → expand titles/segments → plan → 4 gates → thread list_id"]
     agents["Capability agents (one per stage)<br/>company-discovery · company-enricher · contact-sourcer<br/>contact-qualifier · email-finder · phone-finder · activate"]
     orch --> agents
   end
@@ -57,9 +57,11 @@ flowchart TD
 1. **Your inputs (BYO).** `context/*.md` is *who* you target; `gtm.config.yaml` is *which*
    providers run in what order + the gates + storage backend; `.env` holds keys, read from
    the local environment only.
-2. **Framework brain.** The orchestrator interprets the brief into a plan (Gate #1), then
-   threads one `list_id` through the capability agents — one per stage. The agents contain
-   zero provider names in their logic.
+2. **Framework brain.** The orchestrator interprets the brief into a plan (Gate #1) —
+   including the role/segment **expansion** that turns an ambiguous title into the full set
+   that means it ([role-expansion.md](role-expansion.md)) — then threads one `list_id` through
+   the capability agents, one per stage. The agents contain zero provider names in their logic
+   and never re-infer titles; they read the frozen, approved expansion.
 3. **Provider seam.** Each provider is a declarative `manifest.yaml` (+ a thin stdlib
    adapter when the call is gnarly). `web_research` is builtin (no key) and runs the Claude
    subagent fan-out workflows for discovery, sourcing, account intel, and scoring —

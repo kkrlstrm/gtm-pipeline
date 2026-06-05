@@ -19,6 +19,11 @@ company_search → company_enrich → people_search → qualify → email_enrich
    (discover)      (account intel)   (source)      (score)     (find email)   (find phone)   (push to sequencer)
 ```
 
+Before those stages, the brief is interpreted into a plan you approve at **Gate #1** — including
+a **role & segment expansion** so an ambiguous title matches every title that *means* it
+(`principal` → head of school, headteacher, school director) instead of being matched literally
+and silently under-sourcing ([role expansion](docs/role-expansion.md)).
+
 It's not a Clay clone. It makes the GTM workflow itself **portable, auditable, and
 agent-executable.**
 
@@ -28,7 +33,8 @@ agent-executable.**
 
 Most GTM list-building has the same failure modes:
 
-- The **targeting logic** lives in one operator's head.
+- The **targeting logic** lives in one operator's head — and a literal title search silently
+  misses the synonyms it didn't think to type.
 - The **enrichment logic** lives inside one vendor's UI.
 - **Provider swaps** mean rebuilding the workflow.
 - **Agents** research, but lose state, duplicate work, and flood context.
@@ -45,7 +51,8 @@ people → apply persona judgment by hand → run enrichment waterfalls → chec
 a CSV → push to a sequencer. It works, but it's hard to repeat, audit, or hand off.
 
 **After** — write `/gtm target mid-market fintech CFOs in DACH for our compliance product`,
-and the pipeline reads your ICP context → resolves providers from your keys → discovers
+and the pipeline reads your ICP context → expands the role/segment into the titles and
+industries that actually count (you approve it) → resolves providers from your keys → discovers
 companies → suppresses CRM matches → enriches account intel → sources contacts → scores them
 against your rubric → finds verified emails/phones → exports or activates. Same expertise —
 encoded once, requested in plain English.
@@ -67,10 +74,8 @@ generated through the actual `storage/cli.py` + `show-plan.py`.
 - **State survives the pipeline.** Every stage writes canonical records under one `list_id`,
   so discovery → sourcing → qualify → enrichment → activation never "research it and lose it."
 - **Judgment is explicit and reviewable.** Personas, segments, exclusions, and the 0–10
-  rubric live in `context/*.md` — versioned, not in someone's head. Ambiguous titles expand at
-  brief time (`principal` → head of school, headteacher, …) and surface at Gate #1 to edit, so
-  recall isn't lost to a literal-string match
-  ([role expansion](docs/role-expansion.md)).
+  rubric live in `context/*.md` — versioned, not in someone's head — and the role/segment
+  expansion that widens ambiguous titles is a reviewed artifact at Gate #1, not tacit knowledge.
 - **Expensive work is routed.** Research/sourcing on Sonnet subagents, high-volume scoring on
   Haiku, intermediate results kept out of the main context (below).
 - **Spend and sends are gated.** Plan → qualify review → pre-paid-enrichment → activation,
@@ -129,7 +134,7 @@ flowchart TD
   end
 
   subgraph BRAIN["② Framework brain — speaks only in capabilities"]
-    orch["Orchestrator<br/>interpret → plan → 4 gates → thread list_id"]
+    orch["Orchestrator<br/>interpret → expand titles/segments → plan → 4 gates → thread list_id"]
     agents["Capability agents (one per stage)<br/>company-discovery · company-enricher · contact-sourcer<br/>contact-qualifier · email-finder · phone-finder · activate"]
     orch --> agents
   end
