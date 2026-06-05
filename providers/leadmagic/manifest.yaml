@@ -1,0 +1,214 @@
+# providers/leadmagic/manifest.yaml
+# LeadMagic is a full SINGLE-PROVIDER stack AND a drop-in waterfall tier: one key covers
+# discovery, account intel, sourcing, email, email VALIDATION, and mobile —
+# company_search + company_enrich + people_search + email_enrich + email_validate +
+# phone_enrich (+ linkedin_url_lookup). Its standout slot is email_validate: a dedicated
+# 0.25-credit validator (4 checks/credit) that the rest of the stack lacks.
+# Spec-only (the agent issues the curl itself) — every endpoint is a plain synchronous
+# POST + JSON, no async polling, no Cloudflare. Verified against https://leadmagic.io/docs (2026-06).
+name: leadmagic
+display_name: LeadMagic
+docs_url: https://leadmagic.io/docs
+auth:
+  type: header
+  env: LEADMAGIC_API_KEY
+  header: X-API-Key
+base_url: https://api.leadmagic.io
+defaults:
+  pacing_notes: >
+    All endpoints are POST + Content-Type: application/json. Pay-on-success across the board —
+    a null/not_found result is FREE (credits charged only on a hit). Email Finder ~300 req/min.
+  version_note: >
+    GOTCHA: the API version prefix is PER-ENDPOINT, not uniform. Most endpoints are /v1/...,
+    but people_search is /v3/people/search and company_search (lookalike) is /v3/companies/lookalike.
+    Confirm the exact path against the live reference at integration; do not assume one prefix.
+  single_provider: >
+    Declares stages 0, 0.5, 1, 3 (+validate), 4 on one key. Caveat: its company_search is
+    look-alike (seed-based), not cold keyword org search — pair with web_research for zero-seed
+    discovery, then let LeadMagic expand from the first exemplars.
+
+capabilities:
+
+  # ── Stage 0: discovery via look-alike expansion ────────────────────────────────
+  company_search:
+    cost: "1 credit / lookalike returned (free when 0 matches)"
+    method: POST
+    path: /v3/companies/lookalike          # NOTE v3 (see defaults.version_note)
+    request_template: |
+      {
+        "company_domain": "{{seed_domain}}",
+        "company_name": "{{seed_company}}",
+        "description": "{{icp_description}}",
+        "company_filters": {
+          "country_codes": {{geographies}},
+          "employee_ranges": {{employee_ranges}},
+          "industries": {{industries}}
+        },
+        "limit": {{page_size}},
+        "offset": {{offset}}
+      }
+    response:
+      list_path: companies                 # confirm exact key; each item is one lookalike
+      pagination: { per_page: 25, max_limit: 2000, paging: "limit + offset" }
+      field_map:
+        company_name: company_name
+        company_domain: company_domain
+        linkedin_url: linkedin_url
+        similarity: discovery_score        # 0.0–1.0 vector score
+        source_seed_domain: discovery_seed
+    gotchas:
+      - "REQUIRES a seed (company_domain / company_name / description) — this is look-alike EXPANSION, not cold keyword search. For zero-seed discovery, run web_research first, then feed its exemplars here."
+      - "company_filters (country_codes / employee_ranges / industries / tech / funding) narrow lookalikes to your ICP — pass them so expansion stays on-target."
+      - "Agent sets discovery_reason = 'lookalike of {discovery_seed} (similarity {discovery_score})'."
+      - "Default 25 results; limit up to 2000 + offset for paging."
+
+  # ── Stage 0.5: account intel (firmographics + funding) ─────────────────────────
+  company_enrich:
+    cost: "1 credit (company-search) + 4 credits (company-funding) per matched company"
+    method: POST
+    path: /v1/companies/company-search     # primary; SECOND call to /v1/companies/company-funding for funding/CEO
+    request_template: |
+      { "company_domain": "{{company_domain}}", "company_name": "{{company_name}}" }
+    response:
+      field_map:
+        industry: intel.sub_industry
+        employeeRange: intel.estimated_employees
+        founded: intel.founded_year
+        revenue: intel.revenue_range
+        headquarters: intel.hq_location
+        description: intel.description
+        specialties: intel.custom.specialties
+        competitors: intel.custom.competitors
+    gotchas:
+      - "company_domain is most accurate; company_name may match a similar-named org."
+      - "Firmographics come from /v1/companies/company-search (1 cr). For funding/investors/CEO, make a SECOND call to /v1/companies/company-funding (4 cr): total_funding->intel.total_raised, latest_round->intel.funding_stage, latest_round_date->intel.last_round, investors[]->intel.investors, leadership.ceo->intel.leadership[]."
+      - "For tech_stack, a THIRD optional call to /v1/companies/technographics. Skip funding/tech calls when the brief doesn't need them — honor the cost gate."
+      - "This is structured firmographics — pair with the web_research fan-out when you also want cited 'why now' signals."
+
+  # ── Stage 1: sourcing (identity-only by default) ───────────────────────────────
+  people_search:
+    cost: "1 credit / person returned (identity only; email +1, mobile +5 are OPT-IN)"
+    method: POST
+    path: /v3/people/search                # NOTE v3 (see defaults.version_note)
+    request_template: |
+      {
+        "titles": {{titles}},
+        "company_domain": "{{company_domain}}",
+        "company_name": "{{company_name}}",
+        "company_filters": { "country_codes": {{geographies}} },
+        "limit": {{page_size}},
+        "offset": {{offset}}
+      }
+    response:
+      list_path: people
+      pagination: { per_page: 25, max_limit: 100, paging: "limit + offset" }
+      field_map:
+        contact_full_name: full_name       # single string — agent splits to first/last
+        contact_job_title: title
+        profile_url: linkedin_url           # confirm exact field name; LeadMagic is LinkedIn-sourced
+        contact_city: location
+        contact_country: country
+        company.company_name: company_name  # confirm nested subfield names if null
+        company.company_domain: company_domain
+    gotchas:
+      - "IDENTITY ONLY by default (1 cr/person). Email/mobile are paid unlocks (+1 / +5 cr) that require include_contact_details + confirm_credit_charge:true — do NOT set those during sourcing; let Gate #3 own paid enrichment via the dedicated enrich endpoints."
+      - "contact_full_name is a single string — the agent splits to first_name/last_name."
+      - "titles accepts up to 12 title terms; limit max 100/page + offset."
+      - "Role Finder (/v1/people/role-finder, 2 cr) is the targeted sibling: job_title + company -> one decision-maker with profile_url. Use it when you want a single role-holder per company rather than a list."
+
+  # ── Stage 3: email enrichment (self-validating) ────────────────────────────────
+  email_enrich:
+    cost: "1 credit / email FOUND (free on miss)"
+    method: POST
+    path: /v1/people/email-finder
+    request_template: |
+      {
+        "first_name": "{{first_name}}",
+        "last_name": "{{last_name}}",
+        "full_name": "{{full_name}}",
+        "domain": "{{company_domain}}",
+        "company_name": "{{company_name}}"
+      }
+    match_key_priority:
+      - { when: "has company_domain", use: ["first_name", "last_name", "domain"] }
+      - { when: "domain absent",      use: ["full_name", "company_name"] }
+      - { when: "only linkedin_url is known", use: ["ALT: POST /v1/people/b2b-profile-email with profile_url (5 cr)"] }
+    response:
+      field_map:
+        email: email
+        status: email_status_raw           # "valid" | null
+        employment_verified: email_employment_verified
+    status_semantics:
+      accept: ["valid"]
+      miss: [null]
+    gotchas:
+      - "SELF-VALIDATING: status 'valid' means deliverable — skip a separate email_validate call on LeadMagic-FOUND emails (same rule as FullEnrich)."
+      - "Email Finder is keyed on name + domain, NOT a LinkedIn URL. When you only have a LinkedIn URL, use Profile->Email (/v1/people/b2b-profile-email, 5 cr) instead."
+      - "Pay-on-found: a null result costs nothing, so this is a cheap LATE fallback tier in an email waterfall."
+      - "Returns employment_verified + MX data (mx_provider/has_mx) alongside the email."
+
+  # ── Stage 3 gate: dedicated cheap validator (the standout slot) ─────────────────
+  email_validate:
+    cost: "0.25 credit / definitive result (valid|invalid); 'unknown' is free"
+    method: POST
+    path: /v1/people/email-validation
+    request_template: |
+      { "email": "{{email}}" }
+    response:
+      field_map:
+        email_status: status_raw           # valid | invalid | unknown
+        is_domain_catch_all: catch_all_flag
+    status_semantics:
+      # canonical status the agent derives:
+      deliverable: ["valid + is_domain_catch_all=false"]
+      catch_all:   ["valid + is_domain_catch_all=true"]
+      invalid:     ["invalid"]
+      unknown:     ["unknown"]
+    gotchas:
+      - "The cheapest validator in the stack (4 checks / credit) — slot it as the email_validate gate behind ANY enricher that returns an unverified email (e.g. Prospeo UNVERIFIED, Apollo guessed/extrapolated)."
+      - "Catch-all is NOT a separate status — derive it from email_status='valid' AND is_domain_catch_all=true."
+      - "'unknown' results are free, so validating costs you nothing on the inconclusive rows."
+
+  # ── Stage 4: mobile (keyed on profile_url / email, NOT name+domain) ────────────
+  phone_enrich:
+    cost: "5 credits / mobile FOUND (free on miss)"
+    method: POST
+    path: /v1/people/mobile-finder
+    request_template: |
+      {
+        "profile_url": "{{linkedin_url}}",
+        "work_email": "{{email}}",
+        "personal_email": "{{personal_email}}"
+      }
+    match_key_priority:                     # DIFFERENT key than name+domain enrichers
+      - { when: "linkedin_url is vanity", use: ["profile_url"] }
+      - { when: "has email",              use: ["work_email"] }
+      - { when: "linkedin_url is member_id AND no email", use: ["SKIP: resolve a vanity URL via linkedin_url_lookup first, or carry an email"] }
+    response:
+      field_map:
+        mobile_number: phone                # adapter/agent normalizes to E.164
+    gotchas:
+      - "Keyed on profile_url OR work_email/personal_email — NOT name+company. Run AFTER sourcing (LinkedIn URL) or AFTER email_enrich; it cannot start from name+domain alone."
+      - "Apify member-ID LinkedIn URLs (/in/ACw...) may not resolve here — prefer a vanity URL (recover via linkedin_url_lookup) or pass the work_email as the key."
+      - "Pay-on-found (5 cr): a good fallback AFTER the pricier FullEnrich phone (10 cr); misses are free."
+      - "Does not classify line type — chain phone_validate (e.g. clearoutphone) if you need mobile/direct confirmation."
+
+  # ── Stage 2 (opt): recover a LinkedIn URL ──────────────────────────────────────
+  linkedin_url_lookup:
+    cost: "~1 credit (people-search match) or 5 credits (email->profile)"
+    method: POST
+    path: /v3/people/search                # name + company filter -> profile_url
+    request_template: |
+      {
+        "first_name": "{{first_name}}",
+        "last_name": "{{last_name}}",
+        "company_domain": "{{company_domain}}",
+        "limit": 1
+      }
+    response:
+      field_map:
+        "people[0].profile_url": linkedin_url
+    gotchas:
+      - "Recover a vanity LinkedIn URL for a KNOWN person via People Search (name + company -> profile_url). Return a URL only when the match is confident."
+      - "If you have the work email but not the person, Email->Profile (/v1/people/email-to-profile) reverse-resolves a profile from an email."
+      - "Use to upgrade an Apify member-ID contact to a vanity URL so phone_enrich (mobile-finder) and downstream matching work."

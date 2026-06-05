@@ -66,6 +66,9 @@ if python3 -c "import yaml" 2>/dev/null; then
   eq "prospeo single-provider caps" \
     "$(python3 -c "import yaml;print(','.join(sorted(yaml.safe_load(open('providers/prospeo/manifest.yaml'))['capabilities'])))")" \
     "company_enrich,company_search,email_enrich,people_search,phone_enrich"
+  eq "leadmagic single-provider caps" \
+    "$(python3 -c "import yaml;print(','.join(sorted(yaml.safe_load(open('providers/leadmagic/manifest.yaml'))['capabilities'])))")" \
+    "company_enrich,company_search,email_enrich,email_validate,linkedin_url_lookup,people_search,phone_enrich"
 fi
 eq "hubspot crm_dedupe estimate (company)" \
   "$(python3 providers/hubspot/adapter.py --capability crm_dedupe --estimate --input '{"object":"company","values":["acme.com","globex.io"]}' | jq1 "['checked']")" "2"

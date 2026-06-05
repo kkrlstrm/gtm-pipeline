@@ -61,9 +61,9 @@ generated through the actual `storage/cli.py` + `show-plan.py`.
 
 ## What this unlocks
 
-- **Provider choice is configuration.** Swap Apollo for Prospeo, FullEnrich, Dropleads,
-  Smartlead, Lemlist, or HeyReach in `gtm.config.yaml` — never a prompt or agent. Only keyed
-  providers run, so a partial key set still gives a working, thinner pipeline.
+- **Provider choice is configuration.** Swap Apollo for Prospeo, LeadMagic, FullEnrich,
+  Dropleads, Smartlead, Lemlist, or HeyReach in `gtm.config.yaml` — never a prompt or agent.
+  Only keyed providers run, so a partial key set still gives a working, thinner pipeline.
 - **State survives the pipeline.** Every stage writes canonical records under one `list_id`,
   so discovery → sourcing → qualify → enrichment → activation never "research it and lose it."
 - **Judgment is explicit and reviewable.** Personas, segments, exclusions, and the 0–10
@@ -133,7 +133,7 @@ flowchart TD
 
   subgraph SEAM["③ Provider seam — swap by config, not code"]
     man["providers/*/manifest.yaml<br/>auth · endpoints · field_map · gotchas"]
-    api["API providers<br/>apollo · prospeo · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
+    api["API providers<br/>apollo · prospeo · leadmagic · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
     builtin["web_research — builtin, no key"]
     wf["Claude subagent fan-out (token-efficient)<br/>discover-companies · source-people · enrich-companies · score-leads<br/>Sonnet research/sourcing · Haiku scoring"]
     man --> api
@@ -181,7 +181,7 @@ python3 scripts/show-plan.py
 ```
 
 The default config uses the `local` backend, so a first run needs no database. You can run
-the **whole pipeline on one key** (Apollo or Prospeo) — see
+the **whole pipeline on one key** (Apollo, Prospeo, or LeadMagic) — see
 [docs/single-provider.md](docs/single-provider.md). Full walkthrough in
 [docs/quickstart.md](docs/quickstart.md).
 
@@ -202,6 +202,7 @@ only if its key is set.
 | `fullenrich` | email_enrich, phone_enrich | script |
 | `clearoutphone` | phone_validate | spec |
 | `prospeo` | company_search, people_search, email_enrich, phone_enrich, company_enrich | spec — single-provider stack |
+| `leadmagic` | company_search, company_enrich, people_search, email_enrich, email_validate, phone_enrich, linkedin_url_lookup | spec — single-provider stack + cheap validator |
 | `lemlist` | sequencer_push (email) | script |
 | `smartlead` | sequencer_push (email) | spec |
 | `heyreach` | sequencer_push (LinkedIn) | spec |
