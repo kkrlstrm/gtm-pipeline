@@ -59,10 +59,6 @@ brief, the ICP, the real provider plan, cited account intel, the campaign-ready
 run — the data flow, the canonical records, the SKIPs removed before paid enrichment —
 generated through the actual `storage/cli.py` + `show-plan.py`.
 
-What it can't show, because the data is synthetic: survival against live provider quirks —
-rate limits, malformed responses, silent field drift. That's exactly what the provider
-manifests and adapters exist to tame, and what a redacted real run would demonstrate.
-
 ## What this unlocks
 
 - **Provider choice is configuration.** Swap Apollo for Prospeo, FullEnrich, Dropleads,
