@@ -52,6 +52,12 @@ eq "fullenrich phone estimate credits" \
   "$(python3 providers/fullenrich/adapter.py --capability phone_enrich --estimate --input "$ENR" | jq1 "['cost_estimate_credits']")" "10"
 eq "fullenrich excludes empty-domain" \
   "$(python3 providers/fullenrich/adapter.py --capability email_enrich --estimate --input "$ENR" | jq1 "['excluded_empty_domain']")" "1"
+eq "ai-ark email estimate credits" \
+  "$(python3 providers/ai-ark/adapter.py --capability email_enrich --estimate --input "$ENR" | jq1 "['cost_estimate_credits']")" "2"
+eq "ai-ark phone addressable (vanity URL ok; empty key excluded)" \
+  "$(python3 providers/ai-ark/adapter.py --capability phone_enrich --estimate --input "$ENR" | jq1 "['addressable']")" "1"
+eq "ai-ark email requires track_id (run mode errors clean)" \
+  "$(python3 providers/ai-ark/adapter.py --capability email_enrich --input '{"contacts":[{"id":1}]}' | jq1 "['error']['type']")" "missing_track_id"
 eq "lemlist sequencer estimate leads" \
   "$(python3 providers/lemlist/adapter.py --capability sequencer_push --estimate --input '{"campaign":{"name":"t"},"leads":[{"email":"a@b.com"},{"first_name":"x"}]}' | jq1 "['leads_to_import']")" "1"
 eq "apify estimate (skip-resolve)" \
@@ -69,6 +75,9 @@ if python3 -c "import yaml" 2>/dev/null; then
   eq "leadmagic single-provider caps" \
     "$(python3 -c "import yaml;print(','.join(sorted(yaml.safe_load(open('providers/leadmagic/manifest.yaml'))['capabilities'])))")" \
     "company_enrich,company_search,email_enrich,email_validate,linkedin_url_lookup,people_search,phone_enrich"
+  eq "ai-ark single-provider caps" \
+    "$(python3 -c "import yaml;print(','.join(sorted(yaml.safe_load(open('providers/ai-ark/manifest.yaml'))['capabilities'])))")" \
+    "company_enrich,company_search,email_enrich,linkedin_url_lookup,people_search,phone_enrich"
 fi
 eq "hubspot crm_dedupe estimate (company)" \
   "$(python3 providers/hubspot/adapter.py --capability crm_dedupe --estimate --input '{"object":"company","values":["acme.com","globex.io"]}' | jq1 "['checked']")" "2"

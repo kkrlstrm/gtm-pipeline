@@ -61,7 +61,7 @@ generated through the actual `storage/cli.py` + `show-plan.py`.
 
 ## What this unlocks
 
-- **Provider choice is configuration.** Swap Apollo for Prospeo, LeadMagic, FullEnrich,
+- **Provider choice is configuration.** Swap Apollo for Prospeo, LeadMagic, AI Ark, FullEnrich,
   Dropleads, Smartlead, Lemlist, or HeyReach in `gtm.config.yaml` — never a prompt or agent.
   Only keyed providers run, so a partial key set still gives a working, thinner pipeline.
 - **State survives the pipeline.** Every stage writes canonical records under one `list_id`,
@@ -133,7 +133,7 @@ flowchart TD
 
   subgraph SEAM["③ Provider seam — swap by config, not code"]
     man["providers/*/manifest.yaml<br/>auth · endpoints · field_map · gotchas"]
-    api["API providers<br/>apollo · prospeo · leadmagic · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
+    api["API providers<br/>apollo · prospeo · leadmagic · ai-ark · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
     builtin["web_research — builtin, no key"]
     wf["Claude subagent fan-out (token-efficient)<br/>discover-companies · source-people · enrich-companies · score-leads<br/>Sonnet research/sourcing · Haiku scoring"]
     man --> api
@@ -181,7 +181,7 @@ python3 scripts/show-plan.py
 ```
 
 The default config uses the `local` backend, so a first run needs no database. You can run
-the **whole pipeline on one key** (Apollo, Prospeo, or LeadMagic) — see
+the **whole pipeline on one key** (Apollo, Prospeo, LeadMagic, or AI Ark) — see
 [docs/single-provider.md](docs/single-provider.md). Full walkthrough in
 [docs/quickstart.md](docs/quickstart.md).
 
@@ -203,6 +203,7 @@ only if its key is set.
 | `clearoutphone` | phone_validate | spec |
 | `prospeo` | company_search, people_search, email_enrich, phone_enrich, company_enrich | spec — single-provider stack |
 | `leadmagic` | company_search, company_enrich, people_search, email_enrich, email_validate, phone_enrich, linkedin_url_lookup | spec — single-provider stack + cheap validator |
+| `ai-ark` | company_search, company_enrich, people_search, email_enrich, phone_enrich, linkedin_url_lookup | spec + script — discovery+intel in one call; async/trackId email |
 | `lemlist` | sequencer_push (email) | script |
 | `smartlead` | sequencer_push (email) | spec |
 | `heyreach` | sequencer_push (LinkedIn) | spec |

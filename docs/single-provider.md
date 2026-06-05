@@ -1,7 +1,7 @@
 # Running on a single provider
 
 You don't need ten keys. The framework is provider-agnostic, so the pipeline runs on
-whatever you have — including **one** vendor for everything. Three vendors can drive the
+whatever you have — including **one** vendor for everything. Four vendors can drive the
 whole pipeline solo:
 
 | One key | Covers | Stages |
@@ -9,6 +9,7 @@ whole pipeline solo:
 | **Apollo** | people_search, company_search, email_enrich, phone_enrich | 0, 1, 3, 4 |
 | **Prospeo** | company_search, people_search, email_enrich, phone_enrich, company_enrich | 0, 0.5, 1, 3, 4 |
 | **LeadMagic** | company_search*, company_enrich, people_search, email_enrich, **email_validate**, phone_enrich | 0*, 0.5, 1, 3, 4 |
+| **AI Ark** | company_search, company_enrich, people_search, email_enrich, phone_enrich, linkedin_url_lookup | 0, 0.5, 1, 3, 4 |
 
 \* LeadMagic's company_search is **look-alike** (seed-based), not cold keyword org search —
 keep `web_research` ahead of it for zero-seed discovery, then let LeadMagic expand from the
@@ -64,6 +65,26 @@ finder is keyed on a **LinkedIn URL or email** (not name+domain), so phone enric
 sourcing/email; and emails come back self-validated, so the `email_validate` slot is really
 there to re-check emails from *other* enrichers in a mixed stack.
 
+## AI Ark only
+
+```yaml
+# gtm.config.yaml
+waterfalls:
+  company_search: [ai-ark]          # cold filter + look-alike in one call
+  company_enrich: [ai-ark]          # intel ships INLINE with the search — no extra call/credit
+  people_search:  [ai-ark]          # returns the trackId the email finder needs
+  email_enrich:   [ai-ark]          # async; consumes the search trackId (single-use, 6h TTL)
+  email_validate: []                # AI Ark self-validates its finds; no standalone validator
+  phone_enrich:   [ai-ark]          # synchronous; LinkedIn URL or domain+full_name
+  phone_validate: []
+```
+Set `AI_ARK_API_KEY` (sent as the `X-TOKEN` header), run `python3 scripts/show-plan.py`. AI Ark
+is the strongest **discovery** stack here — one `POST /companies` does cold filter + semantic +
+look-alike *and* returns funding/tech/firmographics inline, so stages 0 and 0.5 collapse into a
+single call. The catch: email enrichment is **async and bound to the search's trackId** (run it
+promptly, once), and there's **no standalone validator** — so in a mixed stack, pair it with
+LeadMagic for the `email_validate` gate.
+
 ## Why the "free search" providers were chosen
 
 - **Apollo** — the People/Company **Search** API spends **no credits**; only enrichment
@@ -78,6 +99,11 @@ there to re-check emails from *other* enrichers in a mixed stack.
   with a **100-credit free tier** to test. That makes it cheap to stack as a *late* waterfall
   tier — you pay nothing for the rows it can't find. Its dedicated `email_validate` (0.25 cr)
   is the best-value validation step in the stack.
+- **AI Ark** — also **pay-per-result** with a 100-credit free tier, and the best **discovery**
+  engine here: cold filter + semantic + look-alike in one `/companies` call that returns funding
+  + technographics + firmographics inline (stages 0 and 0.5 in one). Trade-offs to wire around:
+  its email finder is **async + trackId-coupled** (single-use, 6h TTL — so it lives behind an
+  `adapter.py`), and it has **no standalone email validator**.
 
 ## How it degrades gracefully
 

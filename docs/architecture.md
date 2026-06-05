@@ -24,7 +24,7 @@ flowchart TD
 
   subgraph SEAM["③ Provider seam — swap by config, not code"]
     man["providers/*/manifest.yaml<br/>auth · endpoints · field_map · gotchas"]
-    api["API providers<br/>apollo · prospeo · leadmagic · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
+    api["API providers<br/>apollo · prospeo · leadmagic · ai-ark · dropleads · apify(LinkedIn)<br/>fullenrich · clearoutphone · firecrawl"]
     builtin["web_research — builtin, no key"]
     wf["Claude subagent fan-out (token-efficient)<br/>workflows: discover-companies · source-people · enrich-companies · score-leads<br/>subagents: researcher/sourcer (Sonnet) · scorer (Haiku)"]
     man --> api

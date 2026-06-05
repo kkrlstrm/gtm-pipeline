@@ -1,0 +1,189 @@
+# providers/ai-ark/manifest.yaml
+# AI Ark is a near single-provider stack whose STANDOUT is discovery: one POST /companies does
+# cold filter + semantic + look-alike search AND returns deep account intel (funding rounds,
+# investors, technographics, firmographics) INLINE — covering stages 0 and 0.5 in a single call.
+# people_search returns a trackId that the (async) email finder consumes; mobile-phone finder is
+# synchronous. Email/phone enrichment go through adapter.py (async + nested-array shapes);
+# search + reverse-lookup are spec-only (the agent curls them).
+# Verified against https://docs.ai-ark.com (2026-06).
+name: ai-ark
+display_name: AI Ark
+docs_url: https://docs.ai-ark.com
+auth:
+  type: header
+  env: AI_ARK_API_KEY
+  header: X-TOKEN
+base_url: https://api.ai-ark.com/api/developer-portal/v1
+defaults:
+  rate_limit: "5 req/s, 300/min, 18,000/hr"
+  pacing_notes: >
+    All endpoints are POST + Content-Type: application/json with the X-TOKEN header.
+    Data refreshed every 30 days; emails verified in real time by BounceBan (incl. catch-all).
+    Pay-per-result: AI Ark bills per verified email / phone FOUND.
+  single_provider: >
+    Covers stages 0, 0.5, 1, 3, 4 on one key. STANDOUT: search returns account intel inline, so
+    discovery + firmographics + funding + tech come from one /companies call. CAVEATS: (1) the
+    email finder is ASYNC and bound to a single-use, 6h-TTL trackId from people-search — it
+    cannot enrich a stored contact without a fresh search; (2) there is NO standalone email
+    validator (verification is bundled into the finder), so it does not fill the email_validate
+    gate — keep a dedicated validator (e.g. leadmagic) for that.
+  extras_note: >
+    BONUS endpoint NOT modeled as a pipeline capability: POST /people/analysis (LinkedIn URL ->
+    OCEAN/DISC personality, selling context, comms style, 0-100 score). Useful for message
+    personalization at activation; the agent may call it directly when tailoring outreach.
+
+capabilities:
+
+  # ── Stage 0: discovery (cold filter + semantic + look-alike, all in one) ───────
+  company_search:
+    cost: "~1 credit / company returned (confirm exact per-op credits with a live key)"
+    method: POST
+    path: /companies
+    request_template: |
+      {
+        "page": {{page}},
+        "size": {{page_size}},
+        "lookalikeDomains": {{seed_domains}},
+        "account": {
+          "industries": { "any": { "include": {{industries}}, "exclude": [] } },
+          "location":   { "any": { "include": {{geographies}}, "exclude": [] } },
+          "employeeSize": {{employee_ranges}},
+          "technology": {{technologies}},
+          "keyword":    {{keywords}}
+        }
+      }
+    response:
+      list_path: content
+      pagination: { page_field: page, size_field: size, total_path: totalPages, last_path: last, per_page_max: 100 }
+      field_map:
+        summary.name: company_name
+        link.domain: company_domain
+        link.linkedin: linkedin_url
+        summary.industry: industry
+        summary.staff.total: estimated_employees
+        location.headquarter.country: country
+        id: provider_ids.ai_ark
+    gotchas:
+      - "UNLIKE leadmagic look-alike, this does ZERO-SEED cold search too: omit lookalikeDomains and filter on account.industries/technology/employeeSize/keyword/naics/funding/revenue. Provide lookalikeDomains (<=5 domains/LinkedIn URLs) for similarity expansion."
+      - "Text filters take an `any`/`all` operator with include/exclude arrays and a mode (SMART | WORD | STRICT)."
+      - "The SAME response carries deep intel (funding/tech/financial) — reuse it for company_enrich instead of a second call (see below)."
+
+  # ── Stage 0.5: account intel — INLINE with company_search (no extra call) ──────
+  company_enrich:
+    cost: "free — intel ships in the company_search response (no separate endpoint/credit)"
+    method: POST
+    path: /companies                       # same endpoint; map the deeper fields below
+    response:
+      field_map:
+        summary.founded_year: intel.founded_year
+        summary.description: intel.description
+        location.headquarter.raw_address: intel.hq_location
+        financial.funding.type: intel.funding_stage
+        financial.funding.total_amount: intel.total_raised
+        financial.funding.last_amount: intel.last_round
+        "financial.funding.rounds[].investors": intel.investors
+        "technologies[].name": intel.tech_stack
+        naics: intel.custom.naics
+        sic: intel.custom.sic
+    gotchas:
+      - "There is NO separate enrich endpoint — firmographics, funding rounds + investors, and technographics all come back in the company_search payload. Enrich = re-read the fields you already fetched."
+      - "Pair with the web_research fan-out when you also want cited, free-text 'why now' signals (AI Ark gives structured intel, not narrative)."
+
+  # ── Stage 1: sourcing — returns the trackId the email finder needs ─────────────
+  people_search:
+    cost: "~1 credit / person returned (identity only — email/phone are separate enrich)"
+    method: POST
+    path: /people
+    request_template: |
+      {
+        "page": {{page}},
+        "size": {{page_size}},
+        "account": { "domain": { "any": { "include": {{domains}}, "exclude": [] } },
+                     "name":   { "any": { "include": {{company_names}}, "exclude": [] } } },
+        "contact": {
+          "experience": { "latest": { "title": { "any": { "include": {{titles}}, "exclude": [] } } } },
+          "seniority": {{seniorities}},
+          "location":  { "any": { "include": {{geographies}}, "exclude": [] } }
+        }
+      }
+    response:
+      list_path: content
+      track_id_path: trackId               # TOP-LEVEL — capture it (see gotchas)
+      pagination: { page_field: page, size_field: size, total_path: totalPages, last_path: last, per_page_max: 100 }
+      field_map:
+        id: provider_ids.ai_ark
+        profile.first_name: first_name
+        profile.last_name: last_name
+        profile.full_name: full_name
+        profile.title: title
+        department.seniority: seniority
+        department.functions: department
+        link.linkedin: linkedin_url
+        location.country: country
+        location.default: location
+        company.summary.name: company_name
+        company.link.domain: company_domain
+    gotchas:
+      - "CRITICAL: capture the top-level `trackId`. email_enrich REQUIRES it, it is SINGLE-USE, and it EXPIRES 6h after this search. Run email enrichment promptly and once."
+      - "Email and phone are NOT in search results — enrich separately (email via the trackId; phone via mobile-phone-finder)."
+      - "Rich identity: department/function, seniority, skills, education, and member_badges (open_to_work / hiring / premium) — usable as intent-style filters."
+
+  # ── Stage 3: email (ASYNC, trackId-coupled, self-validating) → adapter ─────────
+  email_enrich:
+    cost: "1 credit / verified email FOUND (pay-per-result; free on miss)"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/ai-ark/adapter.py
+      modes: [run, estimate]
+    # Adapter input: {"track_id": "<from people-search>", "contacts": [...], "webhook"?: "url"}
+    response:
+      field_map:                            # source shape the adapter normalizes from
+        email: email
+        type: email_status_raw              # SMTP | CATCH_ALL
+    status_semantics:
+      accept: ["deliverable"]
+      accept_with_flag: ["catch_all"]       # returned + tagged; BounceBan-verified
+      miss: ["invalid", null]
+    gotchas:
+      - "REQUIRES `track_id` from people_search (single-use, 6h TTL). The adapter errors clearly if it's missing — you cannot enrich a stored contact without a fresh search trackId."
+      - "ASYNC: submit -> the job runs in the background -> results via webhook (pass `webhook`) OR the adapter polls. Confirm the poll paths in adapter.py against the live API on first run."
+      - "SELF-VALIDATING: every returned email (incl. CATCH_ALL) is BounceBan-verified — skip a separate email_validate on AI Ark finds (same rule as FullEnrich)."
+
+  # ── Stage 4: mobile (SYNCHRONOUS, per contact) → adapter ───────────────────────
+  phone_enrich:
+    cost: "1 credit / phone FOUND (pay-per-result; free on miss)"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/ai-ark/adapter.py
+      modes: [run, estimate]
+    match_key_priority:
+      - { when: "linkedin_url is vanity", use: ["linkedin"] }
+      - { when: "linkedin_url is member_id OR absent", use: ["domain", "fullName"] }
+    response:
+      field_map:
+        "data[0][0]": phone                 # nested array — adapter flattens to E.164
+    gotchas:
+      - "SYNCHRONOUS (no trackId needed): input is a LinkedIn URL alone, OR company_domain + full_name. The adapter drops Apify member-ID URLs and falls back to domain+full_name."
+      - "Response phone is nested at data[0][0] (array of arrays) — the adapter flattens + strips spaces to E.164."
+      - "Does not classify line type — chain phone_validate (e.g. clearoutphone) if you need mobile/direct confirmation."
+
+  # ── Stage 2 (opt): recover a profile/LinkedIn URL from an email or phone ───────
+  linkedin_url_lookup:
+    cost: "~1 credit / match"
+    method: POST
+    path: /people/reverse-lookup
+    request_template: |
+      { "search": "{{email_or_phone}}" }
+    response:
+      field_map:
+        link.linkedin: linkedin_url
+        profile.first_name: first_name
+        profile.last_name: last_name
+        profile.full_name: full_name
+        profile.title: title
+        company.link.domain: company_domain
+    gotchas:
+      - "Reverse CONTACT -> profile: `search` accepts an email OR a phone number and returns the full person record (incl. LinkedIn URL)."
+      - "Two uses: recover a vanity LinkedIn URL for an Apify member-ID contact so mobile-finder/downstream matching work; or enrich a CSV of emails into full identity records."
