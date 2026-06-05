@@ -1,6 +1,6 @@
 # gtm-pipeline
 
-## gtm-pipeline lets a GTM team encode how they build lists; ICP, personas, title expansion, provider waterfalls, qualification rules, CRM suppression, enrichment gates, and activation - so anyone can request a campaign-ready list in plain English.
+## gtm-pipeline lets anyone with Claude Code request a campaign-ready list in plain English.
 
 Give it your ICP and personas (markdown), your provider keys (a local `.env`), and one
 wiring file (`gtm.config.yaml`). Then describe the campaign in plain English inside Claude
