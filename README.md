@@ -11,141 +11,107 @@ Code:
 /gtm target mid-market fintech CFOs in DACH for our compliance product
 ```
 
-It turns that brief into a deduped, qualified, enriched, **sequencer-ready** contact list —
-without locking your workflow into one data-provider UI. Under the hood it runs seven
-explicit stages, each threading a single `list_id`:
+It turns that brief into a deduped, qualified, enriched, **sequencer-ready** contact list.
+Seven explicit stages, each threading one `list_id`:
 
 ```
 company_search → company_enrich → people_search → qualify → email_enrich → phone_enrich → activate
    (discover)      (account intel)   (source)      (score)     (find email)   (find phone)   (push to sequencer)
 ```
 
-It is **not** trying to clone Clay. It is trying to make the underlying GTM workflow
-**portable, auditable, and agent-executable**:
-
-- ICP and personas live in markdown.
-- Provider waterfalls live in config.
-- API quirks live in provider manifests.
-- Agents speak only in capabilities.
-- Storage keeps every stage tied to one `list_id`.
-- Human gates protect spend and sending.
+It's not a Clay clone. It makes the GTM workflow itself **portable, auditable, and
+agent-executable.**
 
 ---
 
 ## Why this exists
 
-Most GTM list-building workflows share the same problems:
+Most GTM list-building has the same failure modes:
 
 - The **targeting logic** lives in one operator's head.
 - The **enrichment logic** lives inside one vendor's UI.
-- **Provider swaps** mean rebuilding the whole workflow.
-- **Agents** can research, but they lose state, duplicate work, and flood context.
-- **Sending tools** receive a list — but not the reasoning behind why those leads were chosen.
+- **Provider swaps** mean rebuilding the workflow.
+- **Agents** research, but lose state, duplicate work, and flood context.
+- **Sending tools** get a list — but not the reasoning behind it.
 
-`gtm-pipeline` turns that into a portable **execution layer**:
-
-- ICP and personas live as markdown context.
-- Providers are declared as swappable capabilities.
-- Every stage writes to a shared source of truth (one `list_id`).
-- Subagents do the expensive research/scoring in parallel, without flooding the main context.
-- Human gates protect spend and activation.
+`gtm-pipeline` makes the workflow portable: your judgment lives in `context/*.md` and
+`gtm.config.yaml`, providers become swappable capabilities, every stage writes to one shared
+`list_id`, and human gates protect spend and sending.
 
 ## Before / after
 
-**Before** — a GTM operator manually: builds a company list in one tool → exports/imports
-to another → searches for people → applies persona judgment by hand → runs enrichment
-waterfalls → checks the CRM → cleans a CSV → pushes to a sequencer. It works, but it's hard
-to repeat, hard to audit, and hard to hand off.
+**Before** — manually: build a list in one tool → export/import to another → search for
+people → apply persona judgment by hand → run enrichment waterfalls → check the CRM → clean
+a CSV → push to a sequencer. It works, but it's hard to repeat, audit, or hand off.
 
-**After** — you write:
-
-```
-/gtm target mid-market fintech CFOs in DACH for our compliance product
-```
-
-…and the pipeline reads your ICP/persona context → resolves providers from your keys →
-builds a company list → suppresses CRM matches → enriches account intel → sources contacts
-→ scores them against your rubric → enriches verified emails/phones → exports or activates
-into your sequencer. Same expertise — encoded once, requested in plain English.
+**After** — write `/gtm target mid-market fintech CFOs in DACH for our compliance product`,
+and the pipeline reads your ICP context → resolves providers from your keys → discovers
+companies → suppresses CRM matches → enriches account intel → sources contacts → scores them
+against your rubric → finds verified emails/phones → exports or activates. Same expertise —
+encoded once, requested in plain English.
 
 ## See it run
 
-A complete, end-to-end run lives in **[examples/dach-fintech-cfos/](examples/dach-fintech-cfos/)**:
-the brief, the filled-in ICP, the real provider plan, the cited account intel, the
-campaign-ready [export.csv](examples/dach-fintech-cfos/output/export.csv), and the
-[activation log](examples/dach-fintech-cfos/activation-log.md). It shows
-`/gtm target mid-market fintech CFOs in DACH…` becoming a deduped, scored list with the
-SKIPs removed and the qualified CFOs pushed to lemlist. The outputs were generated through
-the real `storage/cli.py` + `show-plan.py`, so they match a live run (the data itself is
-synthetic). **The example proves the abstraction** — read it before the manifests and
-storage details below.
+A complete run is in **[examples/dach-fintech-cfos/](examples/dach-fintech-cfos/)**: the
+brief, the ICP, the real provider plan, cited account intel, the campaign-ready
+[export.csv](examples/dach-fintech-cfos/output/export.csv), and the
+[activation log](examples/dach-fintech-cfos/activation-log.md). It shows the **shape** of a
+run — the data flow, the canonical records, the SKIPs removed before paid enrichment —
+generated through the actual `storage/cli.py` + `show-plan.py`.
+
+What it can't show, because the data is synthetic: survival against live provider quirks —
+rate limits, malformed responses, silent field drift. That's exactly what the provider
+manifests and adapters exist to tame, and what a redacted real run would demonstrate.
 
 ## What this unlocks
 
-**1. List building becomes portable.** Your ICP, personas, scoring rules, provider
-waterfalls, and activation logic aren't trapped in one enrichment tool — or one person's
-head.
+- **Provider choice is configuration.** Swap Apollo for Prospeo, FullEnrich, Dropleads,
+  Smartlead, Lemlist, or HeyReach in `gtm.config.yaml` — never a prompt or agent. Only keyed
+  providers run, so a partial key set still gives a working, thinner pipeline.
+- **State survives the pipeline.** Every stage writes canonical records under one `list_id`,
+  so discovery → sourcing → qualify → enrichment → activation never "research it and lose it."
+- **Judgment is explicit and reviewable.** Personas, segments, exclusions, and the 0–10
+  rubric live in `context/*.md` — versioned, not in someone's head.
+- **Expensive work is routed.** Research/sourcing on Sonnet subagents, high-volume scoring on
+  Haiku, intermediate results kept out of the main context (below).
+- **Spend and sends are gated.** Plan → qualify review → pre-paid-enrichment → activation,
+  all configurable.
 
-**2. Provider choice becomes configuration.** Swap Apollo for Prospeo, FullEnrich,
-Dropleads, Smartlead, Lemlist, or HeyReach by editing `gtm.config.yaml` — never rewriting a
-prompt or agent. Only keyed providers run, so a partial key set still gives a working,
-thinner pipeline (unkeyed providers skip with a one-line log, no edits).
-
-**3. Agents stop being stateless researchers.** Every stage writes to storage through the
-same canonical records, so discovery, sourcing, qualification, enrichment, and activation
-share one `list_id` — no more "the agent researched it but lost it."
-
-**4. GTM judgment becomes explicit.** Qualification isn't hidden in someone's head.
-Personas, segments, exclusions, and the 0–10 scoring rubric live in `context/*.md` —
-versioned and reviewable.
-
-**5. Expensive work gets routed intelligently.** Research and sourcing run through Sonnet
-subagents; high-volume scoring runs through Haiku. The orchestrator keeps the pipeline
-moving without stuffing every intermediate result into context (see below).
-
-**6. Spend and sends stay gated.** The system can move fast, but paid enrichment and live
-activation sit behind configurable gates (plan → qualify review → pre-paid-enrichment →
-activation).
-
-Storage is `local` (zero-setup files) or `postgres` (shared DB, cross-campaign dedup) with
-identical stage semantics, and secrets are read from your local `.env` only — sent to each
-provider's own API and nowhere else ([SECURITY.md](SECURITY.md)).
+Storage is `local` (zero-setup) or `postgres` (shared, cross-campaign dedup) with identical
+semantics; secrets are read from your local `.env` and sent only to each provider's own API.
 
 ## Why subagents matter here
 
-A naive agentic GTM workflow asks one large model to research companies, source people,
-score leads, enrich records, **and** remember every intermediate result. That doesn't
-scale — it loses state and floods context.
+A naive agentic workflow asks one model to research companies, source people, score leads,
+enrich records, **and** hold every intermediate result. It loses state and floods context.
 
-`gtm-pipeline` uses **subagent fan-out** for the stages that benefit from parallel work,
-driven by bundled workflows:
+`gtm-pipeline` fans out subagents for the parallel stages via bundled workflows:
 
-- **`discover-companies`** — one `company-researcher` (Sonnet) per search angle, merged + deduped by domain.
+- **`discover-companies`** — one `company-researcher` (Sonnet) per search angle, deduped by domain.
 - **`source-people`** — one `people-sourcer` (Sonnet) per company.
-- **`enrich-companies`** — a parallel research pass per account (basics / funding / tech / leadership / "why now" signals), then synthesize + source-verify.
-- **`score-leads`** — batched **Haiku** scoring against your ICP rubric.
+- **`enrich-companies`** — a parallel research pass per account, then synthesize + source-verify.
+- **`score-leads`** — batched **Haiku** scoring against your rubric.
 
-The workflow script owns the loop, the merge, and the dedupe; **the main agent only
-receives the final structured result.** That's how you get breadth (many companies and
-contacts at once) without flooding context or paying top-tier prices for cheap work.
+The workflow script owns the loop, merge, and dedupe; the main agent receives only the final
+structured result — breadth without flooding context or paying top-tier prices for cheap work.
 
 ## The operator abstraction
 
-The point isn't only speed — it's that **the skill of building a good GTM list can be
-encoded.** A senior operator defines the system once: what good accounts look like, which
-personas matter, which titles to include or exclude, which providers to trust per stage,
-when to spend enrichment credits, when to suppress CRM matches, when to activate. Then
-anyone on the team requests the outcome in plain English.
+The point isn't speed — it's that **the skill of building a good GTM list can be encoded**:
+what good accounts look like, which personas matter, which titles to include or exclude,
+which providers to trust per stage, when to spend, when to suppress, when to activate. A
+senior operator defines it once; anyone then requests the outcome in plain English.
+
+The runtime is open source on purpose. The durable value isn't the plumbing — it's the
+judgment you encode into it and the per-campaign context it accumulates. Open-sourcing the
+pattern is a deliberate bet that differentiation lives in that judgment layer, not the pipes.
 
 ## Is this a Clay replacement?
 
-Not exactly. **Clay** is a powerful GTM workbench — visual, flexible, and great for
-human-operated enrichment workflows. `gtm-pipeline` is a different thing: a **portable
-execution layer for agent-driven GTM workflows** — markdown for ICP/persona context, config
-for provider waterfalls, manifests for provider-specific API detail, storage as the shared
-source of truth, and agents/subagents executing from a plain-English brief. The goal isn't
-to clone a UI; it's to make the underlying workflow portable, auditable, and executable by
-agents.
+No. **Clay** is a visual GTM workbench for human-operated enrichment. `gtm-pipeline` is a
+portable execution layer for *agent-driven* workflows — run from a plain-English brief, not
+clicked together in a UI. Different tool, different job; it isn't trying to clone the
+workbench.
 
 ## Architecture
 
@@ -268,7 +234,15 @@ Run `python3 scripts/show-plan.py` to see which ones your current keys + config 
 - [docs/capabilities.md](docs/capabilities.md) — capability taxonomy + canonical records + storage ops
 - [docs/swapping-providers.md](docs/swapping-providers.md) — config-only provider swaps
 - [docs/writing-a-provider.md](docs/writing-a-provider.md) — add a manifest / adapter
-- [SECURITY.md](SECURITY.md) — BYOK, keys never transmitted
+
+## Compliance & acceptable use
+
+You are responsible for using each provider within its terms — including automation/scraping
+limits (e.g. LinkedIn data reached via `web_research` or `apify`) and applicable
+data-protection law (GDPR, CCPA, and local rules) when you store or contact people. The
+framework gives you the seams to choose compliant providers and to gate sending; it does not
+grant permission to use any provider or dataset. Confirm your own legal basis before a live
+run.
 
 ## Verify (no keys needed)
 
@@ -277,13 +251,16 @@ bash scripts/selftest.sh      # storage round-trip, adapter estimates, plan reso
 bash scripts/scrub-check.sh   # secret/leak gate — run before publishing a fork
 ```
 
-## Status & scope
+## Security & status
 
-This is an open-source **reference implementation** — an agent-native GTM pipeline *pattern*
-and portable execution layer, not a finished product. The architecture and a full
-end-to-end example are here; the example data is explicitly synthetic, and live runs need
-your own provider keys. Use it as a foundation to build on, not a drop-in "GTM OS."
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Secrets are read from your local `.env` only and never fetched over the network — details in
+[SECURITY.md](SECURITY.md).
+
+This is an open-source **reference implementation** — a pattern and portable execution layer,
+not a finished product. The architecture and a full example are here; the example data is
+synthetic (so it shows the data flow, not live-API survival), and real runs need your own
+keys. Build on it; don't treat it as a drop-in "GTM OS." Contributions welcome —
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

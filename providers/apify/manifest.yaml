@@ -29,6 +29,7 @@ capabilities:
         linkedinUrl: linkedin_url
         "location.linkedinText": location
     gotchas:
+      - "COMPLIANCE: this scrapes LinkedIn company employees via a third-party actor — LinkedIn ToS + data-protection obligations are yours to honor. See SECURITY.md."
       - "Short mode returns member-ID LinkedIn URLs (/in/ACw...) — valid for storage/dedup, NOT for Apollo/Lemlist matching. Enrichers must fall back to name+domain."
       - "The LinkedIn location filter rejects broad regions (Europe/North America → 0 results) — expand to a country list (config/region-expansion.yaml) and pass per-country geographies. The agent does the expansion; the adapter takes geographies as-is."
       - "seniorityLevelIds map: Director=220, VP=300, CxO=310, Manager=210, Senior=120, Owner/Partner=320 (the adapter maps canonical seniority names)."

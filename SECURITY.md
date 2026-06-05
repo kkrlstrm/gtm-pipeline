@@ -33,6 +33,23 @@ tree.
 - The `postgres` backend connects to the database you point `DATABASE_URL` at. You
   control that database.
 
+## Compliance & acceptable use
+
+This framework moves data between providers you choose; it does not grant permission to use
+any of them. **You are responsible** for:
+
+- **Provider terms of service**, including automation and scraping limits. Some capabilities
+  reach LinkedIn data through the open web (`web_research` people/company search) or a
+  third-party scraper (`apify`); using them may carry ToS and rate-limit obligations that are
+  yours to honor.
+- **Data-protection law** — GDPR, CCPA, and local rules — when you source, store, enrich, or
+  contact individuals. The DACH example is illustrative; real outreach to EU residents has a
+  legal-basis requirement.
+- **Sending and consent** — anti-spam and opt-out obligations once a list reaches a sequencer.
+
+The framework gives you the seams to choose compliant providers and the gates to keep a human
+on sending. Confirm your own legal basis before a live run.
+
 ## Reporting a vulnerability
 
 If you find a security issue — especially anything that could cause a secret to be

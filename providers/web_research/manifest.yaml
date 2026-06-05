@@ -48,6 +48,7 @@ capabilities:
     gotchas:
       - "Costs subagent tokens (one fan-out per company) — usually last in the people_search waterfall."
       - "Returns vanity LinkedIn URLs when found; verifies current employment; never invents a person."
+      - "COMPLIANCE: reaching LinkedIn/profile data via the open web carries ToS + data-protection obligations that are yours to honor — see SECURITY.md."
 
   linkedin_url_lookup:
     cost: "free (your own search/fetch quota)"
