@@ -1,5 +1,8 @@
 # gtm-pipeline
 
+<!-- portfolio-status -->
+**Status:** Reference implementation — extracted from a private production GTM system; tenant data, provider adapters, and company-specific policy stay private. · **Layer:** Targeting · **[Portfolio map ›](https://github.com/kkrlstrm)**
+
 ## gtm-pipeline lets anyone with Claude Code request a campaign-ready list in plain English.
 
 Give it your ICP and personas (markdown), your provider keys (a local `.env`), and one
@@ -274,3 +277,16 @@ keys. Build on it; don't treat it as a drop-in "GTM OS." Contributions welcome �
 ## License
 
 [Apache-2.0](LICENSE).
+
+---
+
+<!-- portfolio-footer -->
+## Where this fits
+
+Part of a portfolio of **governed, AI-native GTM systems** — reference implementations and reusable patterns extracted from a private production stack. In that system this is the provider-portable pipeline that turns a plain-English brief into a sequencer-ready list.
+
+**Full portfolio map → [github.com/kkrlstrm](https://github.com/kkrlstrm)**
+
+Works with:
+- [gtm-research](https://github.com/kkrlstrm/gtm-research) — supplies cached, source-verified enrichment
+- [gtm-deliverability](https://github.com/kkrlstrm/gtm-deliverability) — receives the list for a recipient-aware rollout
