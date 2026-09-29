@@ -1,7 +1,7 @@
 # gtm-pipeline
 
 <!-- portfolio-status -->
-**Status:** Reference implementation — extracted from a private production GTM system; tenant data, provider adapters, and company-specific policy stay private. · **Layer:** Targeting · **[Portfolio map ›](https://github.com/kkrlstrm)**
+**Status:** Reference implementation of the list-building path GTM engineers use on an internal GTM platform (see [internal-gtm-platform](https://github.com/kkrlstrm/internal-gtm-platform)). Tenant data, provider adapters and company-specific policy stay private. · **Layer:** Workload: list building · **[Portfolio map ›](https://github.com/kkrlstrm)**
 
 ## gtm-pipeline lets anyone with Claude Code request a campaign-ready list in plain English.
 
