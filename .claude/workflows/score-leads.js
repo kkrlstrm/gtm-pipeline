@@ -24,6 +24,8 @@ const personas = A.personas || ''
 const exclusions = A.exclusions || ''
 const batchSize = A.batch_size || 15      // many contacts per Haiku agent = few agents = cheap
 const model = A.model || 'haiku'
+const AGENT = A.agentType === undefined ? 'lead-scorer' : A.agentType
+function agentOpt(t) { return t ? { agentType: t } : {} }
 
 const RESULT_SCHEMA = {
   type: 'object', additionalProperties: false,
@@ -67,11 +69,19 @@ log(`Scoring ${A.contacts.length} contacts in ${batches.length} batch(es) of ${b
 const out = await parallel(batches.map((batch, i) => () =>
   agent(prompt(batch), {
     label: `score:batch-${i + 1}`,
-    phase: 'Score', schema: RESULT_SCHEMA, agentType: 'lead-scorer', model,
+    phase: 'Score', schema: RESULT_SCHEMA, ...agentOpt(AGENT), model,
   }).then(r => (r && r.results) || [])
 ))
 
-const rows = out.filter(Boolean).flat()
+// Keep only results for ids we actually sent, once each; everything else we sent is
+// UNSCORED. The qualifier must not advance an unscored contact as if it had been judged.
+const sent = new Set(A.contacts.map(c => c.id))
+const seen = new Set(), rows = []
+for (const r of out.filter(Boolean).flat()) {
+  if (!sent.has(r.id) || seen.has(r.id)) continue
+  seen.add(r.id); rows.push(r)
+}
+const unscored_ids = A.contacts.map(c => c.id).filter(id => !seen.has(id))
 const tally = rows.reduce((m, r) => (m[r.qualification_status] = (m[r.qualification_status] || 0) + 1, m), {})
-log(`Scored ${rows.length}/${A.contacts.length}: ${JSON.stringify(tally)}`)
-return { rows, summary: { contacts_in: A.contacts.length, scored: rows.length, tally } }
+log(`Scored ${rows.length}/${A.contacts.length}: ${JSON.stringify(tally)}${unscored_ids.length ? ` UNSCORED: ${unscored_ids.length}` : ''}`)
+return { rows, unscored_ids, summary: { contacts_in: A.contacts.length, scored: rows.length, unscored: unscored_ids.length, tally } }

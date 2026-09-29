@@ -19,11 +19,17 @@ orchestrator **generates from the brief**, you **approve at Gate #1**, and every
    the industry/keyword/org-type variants for company discovery. It seeds from any persona
    `Titles:`/`Also-known-as:` in `context/personas.md` and unions — hand-authored variants always
    win.
-2. **Review (Gate #1).** The profile is part of the plan, tagged inferred vs from-context. You
-   edit it there — the recall/precision tradeoff becomes a reviewable artifact, not one person's
-   tacit knowledge.
-3. **Freeze.** On approval it's persisted to the list's `search_criteria.expansion`.
-4. **Read (every stage).** `contact-sourcer` searches the frozen title set (union with persona
+2. **Preview against real titles.** The `preview-titles` workflow samples a few target companies
+   (`defaults.autonomy.title_preview`, default 3) and lists the titles actually in use in that
+   function, marking which ones the set matches literally. Titles seen but not matched are
+   candidates to add; titles that hit an excluded sense are candidates to exclude. Each comes
+   with the page it was seen on.
+3. **Review (Gate #1).** The profile and the preview are part of the plan, tagged inferred vs
+   from-context. You edit it there — the recall/precision tradeoff becomes a reviewable
+   artifact, not one person's tacit knowledge. A persona the brief targets that shows up as
+   excluded, or never matches, is the mistake to look for.
+4. **Freeze.** On approval it's persisted to the list's `search_criteria.expansion`.
+5. **Read (every stage).** `contact-sourcer` searches the frozen title set (union with persona
    titles); `company-discovery` uses the segment variants; the web `people-sourcer` subagent
    treats the set as equivalent matches; `contact-qualifier` uses `exclude_senses` to trim the
    wrong senses. **No stage re-infers** — inference happens once, and the "don't invent a title

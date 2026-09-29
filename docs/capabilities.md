@@ -55,8 +55,17 @@ The pipeline stores one canonical shape so the storage backend needs no remappin
   "provider_ids": { "apollo": "...", "dropleads": 123 },    // generalizes a single apollo_id
   "lead_quality_score",
   "email", "email_source", "email_validation", "email_waterfall_log",
-  "phone", "phone_type", "phone_source", "phone_validation", "phone_waterfall_log" }
+  "email_source_url",                                       // page that shows it, when found on the web
+  "phone",                                                  // E.164, digits only: +493055501234
+  "phone_ext",                                              // extension, kept separate from the number
+  "phone_type",                                             // mobile | direct_dial | switchboard
+  "phone_source", "phone_validation", "phone_waterfall_log",
+  "phone_source_url",
+  "skip_reason" }                                           // why a row left: do-not-contact, qa, qualify
 ```
+
+A `mobile` or `direct_dial` is the named person's own line. A number shared by several people,
+printed beside a department, or equal to the company's main line is a `switchboard`.
 
 Storage adds: `id` (per-list), `stage`
 (`sourced → qualified → email_enriched → phone_enriched`, plus `skipped`),
@@ -66,19 +75,34 @@ Storage adds: `id` (per-list), `stage`
 
 ## Stage handoff (storage ops)
 
-Agents call `storage/cli.py` — never raw SQL/file IO:
+Agents call `storage/cli.py` — never raw SQL/file IO. The backend comes from
+`gtm.config.yaml`, so no `--backend` flag is needed:
 
 | Op | Input | Output |
 |---|---|---|
 | `create_list` | `{name, description?, search_criteria?}` | `{list_id}` |
-| `upsert_contacts` | `{list_id, contacts[]}` | `{inserted, skipped_duplicates, total}` |
+| `get_list` | `{list_id}` | `{list{..., search_criteria, run_state}}` |
+| `update_list` | `{list_id, search_criteria?{patch}, status?}` | `{list_id, updated}` (merges; freezes the approved plan) |
+| `upsert_contacts` | `{list_id, contacts[]}` | `{inserted, skipped_duplicates, total, ignored_fields?}` (unknown keys are dropped and listed, on both backends) |
 | `advance_stage` | `{list_id, contact_ids[], stage, fields?}` | `{updated, not_found[]}` |
+| `update_contacts` | `{list_id, contact_ids[], fields}` | `{updated, not_found[]}` (stage unchanged) |
 | `query_by_stage` | `{list_id, stage}` | `{contacts[]}` |
+| `query_list` | `{list_id}` | `{contacts[]}` (every stage) |
 | `list_summary` | `{list_id?}` | `{lists[]}` (per-stage counts) |
-| `export` | `{list_id, min_stage?, out_path?}` | `{rows[], path, count}` |
+| `export` | `{list_id, min_stage?, out_path?}` | `{rows[], path, count, verdict_path, suppression_applied, qa_open_errors}` |
 | `crossref_master` | `{linkedin_urls[]}` | `{statuses{url: new\|…}}` |
 | `upsert_companies` | `{list_id, companies[]}` | `{inserted, updated, total}` (insert-or-merge on domain) |
 | `query_companies` | `{list_id}` | `{companies[]}` |
+| `log_event` | `{list_id, stage, status, provider?, counts?, warnings?, cost?, note?}` | `{logged, event}` |
+| `run_report` | `{list_id}` | `{list, plan, summary, stages_logged, events, open_warnings, gates, cost}` |
+| `check_suppression` | `{domains?, emails?, phones?, linkedin_urls?, file?}` | `{applied, matches}` (read-only) |
+| `suppress` | `{list_id, posture: research\|send, file?}` | `{verdict, suppressed[]}` — exit 6 if `send` cannot apply |
+| `qa` | `{list_id, default_country?}` | `{findings[], counts, open_errors}` |
+| `qa_resolve` | `{list_id, keys[], action: drop\|keep\|fix, fields? (single key only), note?}` | `{resolved[], qa}` |
+| `preflight_activate` | `{list_id, min_stage?}` | `{ok, blockers[], warnings[], leads_ready}` — exit 6 if blocked; re-matches every row against the configured do-not-contact file |
+
+The run-integrity ops (ledger, suppression, QA, preflight) are documented in
+[run-integrity.md](run-integrity.md).
 
 Companies are deduped/merged on `normalize_domain` (lowercase, drop protocol/`www.`/path/
 trailing dot) — byte-identical between `storage/cli.py` and `storage/postgres/schema.sql`.

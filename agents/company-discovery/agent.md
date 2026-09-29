@@ -53,8 +53,9 @@ For each provider P with `company_search`:
    args: { "seeds": [<icp seed companies>], "segments": [<target segments>],
            "geographies": [<geo>], "criteria": "<brief>", "model": "sonnet" }
    ```
-   It returns `rows` (cited companies). For a **From CSV** run, skip this and use the CSV
-   list directly.
+   It returns `rows` (cited companies) and `failed` (search angles whose agent returned
+   nothing — report them; a failed angle is not an empty market). For a **From CSV** run, skip
+   this and use the CSV list directly.
    **Else if `implemented_by == script`:** run the adapter.
    **Else:** build the request from `request_template` + `auth`, paginate per `response.pagination`,
    map via `response.field_map`.
@@ -66,10 +67,14 @@ For each provider P with `company_search`:
 ## Dedup + exclusions
 - De-dupe companies on normalized domain (lowercase host), then on normalized name.
 - Drop companies matching `context/exclusions.md` (excluded domains / company types).
+- Drop companies on the do-not-contact list before anyone pays to enrich them:
+  `python3 storage/cli.py check_suppression --input '{"domains":[<domains>]}'` returns the
+  matches. If it returns `applied: false`, say so in your report (the file is missing) and
+  continue.
 - Keep the richest record when merging across providers.
 
 ## Output / handoff
-1. Create the list (once): `python3 storage/cli.py create_list --backend <b> [--dir <d>]
+1. Create the list (once): `python3 storage/cli.py create_list
    --input '{"name":"<slug>","description":"<brief>","search_criteria":{segments,personas,geography,expansion,...}}'`
    → capture `list_id`. When the orchestrator passed an approved `expansion` profile, persist it
    under `search_criteria.expansion` — this is where contact-sourcer and qualify read the frozen
@@ -79,8 +84,9 @@ For each provider P with `company_search`:
    appends contacts to this same `list_id`.
 
 ## Reporting
-Per-source counts (found / net-new), modes used, exclusions applied, the final unique
-company count, and the `list_id`. End with the next step: `people_search` on this list.
+Per-source counts (found / net-new), modes used, exclusions and do-not-contact matches
+applied, failed angles, the final unique company count, and the `list_id`. Log the stage
+(`log_event`, `stage: "company_search"`). End with the next step: `people_search` on this list.
 
 ## Decision rules / escalation
 - `defaults.autonomy.paid_source_gate` gates paid `company_search` providers (estimate first).

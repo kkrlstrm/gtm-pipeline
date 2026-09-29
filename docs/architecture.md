@@ -17,7 +17,7 @@ flowchart TD
   end
 
   subgraph BRAIN["② Framework brain — speaks only in capabilities"]
-    orch["Orchestrator<br/>interpret → expand titles/segments → plan → 4 gates → thread list_id"]
+    orch["Orchestrator<br/>interpret → expand + preview titles → plan → gates → thread list_id"]
     agents["Capability agents (one per stage)<br/>company-discovery · company-enricher · contact-sourcer<br/>contact-qualifier · email-finder · phone-finder · activate"]
     orch --> agents
   end
@@ -32,7 +32,7 @@ flowchart TD
   end
 
   subgraph TRUTH["④ Storage — source of truth, byte-identical dedup"]
-    cli["storage/cli.py<br/>create_list · upsert · advance_stage · export · crossref"]
+    cli["storage/cli.py<br/>lists · contacts · export · run ledger<br/>suppress · qa · preflight_activate"]
     db[("local files  or  postgres<br/>pipeline_* tables")]
     cli --> db
   end
@@ -66,15 +66,20 @@ flowchart TD
    adapter when the call is gnarly). `web_research` is builtin (no key) and runs the Claude
    subagent fan-out workflows for discovery, sourcing, account intel, and scoring —
    intermediate results stay in the workflow script, so only the answer hits context.
-4. **Storage.** Agents call `storage/cli.py` ops (never raw SQL/file IO). Dedup on
-   normalized LinkedIn URL / domain is byte-identical across `local` and `postgres`.
+4. **Storage and gates.** Agents call `storage/cli.py` ops (never raw SQL/file IO). Dedup on
+   normalized LinkedIn URL / domain is byte-identical across `local` and `postgres`. The same
+   CLI holds the run ledger and the deterministic gates (do-not-contact, list QA, activation
+   preflight), written once on top of both backends
+   ([run-integrity.md](run-integrity.md)).
 5. **Out.** The campaign-ready `export.csv`, a push to your chosen sequencer, and optional
    HubSpot CRM suppression (between stages 0→0.5 and 3→4).
 
 ## The gates (human-in-the-loop on spend + sends)
 
 `Gate #1` plan approval · `Gate #2` qualify review · `Gate #3` pre-paid-enrichment ·
-`Gate #4` activation. All configurable under `defaults.autonomy`.
+`Gate #4` activation. All configurable under `defaults.autonomy`. Below them sit the
+deterministic gates no autonomy setting skips: do-not-contact (fails open while researching,
+closed before sending), list QA, and `preflight_activate`.
 
 ---
 

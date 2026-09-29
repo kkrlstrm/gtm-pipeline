@@ -2,6 +2,18 @@
 
 > Synthetic example. No real campaign was created.
 
+## Preflight — the send boundary
+
+```
+$ python3 storage/cli.py preflight_activate --input '{"list_id":1,"min_stage":"email_enriched"}'
+{"ok": true, "blockers": [], "warnings": [], "leads_ready": 4, "leads_without_identity": 0,
+ "min_stage": "email_enriched"}
+```
+
+Do-not-contact applied at send posture (`context/do-not-contact.csv`, 1 entry, 0 new matches);
+the three phone-format QA errors were fixed before this ran. See
+[output/run-report.json](output/run-report.json).
+
 ## Gate #4 — activation (always on)
 
 ```

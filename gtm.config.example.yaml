@@ -45,7 +45,26 @@ defaults:
       contacts: 50
       credits: 500
     activate_gate: confirm             # auto | warn | confirm — pushing to a live sequencer is irreversible-ish
+    title_preview: 3                   # sample N companies for the real titles in use before sourcing (0 = off)
   enrich_companies: true               # run the optional company_enrich stage (account intel) before people_search
+
+# ── Do-not-contact (suppression) ─────────────────────────────────────────────
+# A CSV of people/accounts you must never contact: any of the columns email, domain, phone,
+# linkedin_url (+ optional reason). A domain also covers its subdomains, never its parent.
+# The pipeline checks it after sourcing (research posture: a missing file is flagged, the run
+# continues) and again before activation (send posture: a missing file BLOCKS the push).
+# A header-only file is valid and means "my list is empty" — that is a decision you made,
+# which is different from never having checked.
+suppression:
+  file: context/do-not-contact.csv
+  required_for_activation: true        # false = preflight warns instead of blocking (not recommended)
+
+# ── List QA (run before paid enrichment and before activation) ───────────────
+qa:
+  default_country: US                  # how to read a phone number with no +country code (US/CA only; else numbers need +)
+  other_org_patterns: []               # email-domain fragments that mean "a different kind of organisation",
+                                       # e.g. [isd, ".k12.", ".edu"] for a municipal list — a city's email at its
+                                       # school district is flagged as an error, not a mismatch warning
 
 # ── Waterfalls — ordered provider list per capability ────────────────────────
 # Providers are tried in order; a provider whose key is missing is skipped with a

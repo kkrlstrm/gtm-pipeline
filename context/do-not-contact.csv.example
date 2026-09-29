@@ -1,0 +1,6 @@
+email,domain,phone,linkedin_url,reason
+jane.doe@example.com,,,,asked to be removed 2026-01-12
+,customer-one.example,,,current customer
+,campus-a.shared-system.example,,,customer (one campus of a shared system; other campuses stay contactable)
+,,+14155550100,,called and opted out
+,,,https://www.linkedin.com/in/example-person,former employee

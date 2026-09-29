@@ -27,6 +27,7 @@ Rules:
 - Prefer `site:linkedin.com/in "<Company>" "<title>"`, the company's team/leadership page,
   and recent press. Open the page before trusting it.
 - Do NOT fetch emails or phones — identity only (enrichment is a later stage).
+- No match is a valid answer: return an empty list rather than a near-miss.
 
 Return findings via the structured output tool (the workflow defines the schema):
 first_name, last_name, title, linkedin_url, source_url.

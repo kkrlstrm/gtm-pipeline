@@ -30,6 +30,8 @@ tree.
 - The `local` storage backend writes only to `./.gtm-data` (gitignored). No
   contact data leaves your machine except via the providers you explicitly wire
   into a waterfall.
+- `context/do-not-contact.csv` names real people and is gitignored. Keep it out of forks
+  and screenshots.
 - The `postgres` backend connects to the database you point `DATABASE_URL` at. You
   control that database.
 
@@ -48,7 +50,10 @@ any of them. **You are responsible** for:
 - **Sending and consent** — anti-spam and opt-out obligations once a list reaches a sequencer.
 
 The framework gives you the seams to choose compliant providers and the gates to keep a human
-on sending. Confirm your own legal basis before a live run.
+on sending. The do-not-contact check blocks activation by default until your suppression list
+has been applied after the last row was added (see [docs/run-integrity.md](docs/run-integrity.md));
+it enforces the list you maintain, and keeping that list complete is your responsibility.
+Confirm your own legal basis before a live run.
 
 ## Reporting a vulnerability
 

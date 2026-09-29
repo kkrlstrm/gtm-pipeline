@@ -1,0 +1,49 @@
+{
+  "_note": "Synthetic. Fictional companies on .example domains; fake names, emails and phones. This is what each provider returned, before the gates ran; replay.py drives it through storage/cli.py.",
+  "list": {
+    "name": "dach-fintech-cfos",
+    "description": "target mid-market fintech CFOs in DACH for our compliance product",
+    "plan": {
+      "brief": "target mid-market fintech CFOs in DACH for our compliance product",
+      "geography": ["DE", "AT", "CH"],
+      "personas": ["Economic Buyer", "Compliance Champion"],
+      "stages": ["company_search", "crm_dedupe", "company_enrich", "people_search", "suppress", "qualify", "qa", "email_enrich", "phone_enrich", "qa", "suppress", "preflight_activate", "activate"],
+      "sequencer": "lemlist"
+    },
+    "expansion": {
+      "vertical": "fintech (DACH)",
+      "roles": [
+        {"requested": "CFO", "titles": ["CFO", "Chief Financial Officer", "Finanzvorstand", "Kaufmännischer Geschäftsführer", "VP Finance", "Head of Finance"], "seniority": ["CxO", "VP", "Head"], "exclude_senses": ["CFO of a fund (PE/VC portfolio role)"], "source": "inferred + personas.md:Also-known-as"},
+        {"requested": "compliance lead", "titles": ["Head of Compliance", "Chief Compliance Officer", "Leiter Compliance", "MLRO"], "seniority": ["Head", "CxO"], "exclude_senses": ["AML analyst", "KYC analyst"], "source": "inferred"}
+      ],
+      "segment": {"industries": ["Payments", "Lending", "Treasury software"], "keywords": ["BaFin licensed", "FINMA", "e-money institution"], "exclude": ["crypto exchange (no fiat)"]}
+    }
+  },
+  "events": [
+    {"stage": "company_search", "status": "ok", "provider": "web_research+apollo", "counts": {"found": 4, "net_new": 4}},
+    {"stage": "crm_dedupe", "status": "ok", "provider": "hubspot", "counts": {"checked": 4, "in_crm": 1}, "note": "rheinmetrik.example is a current customer"},
+    {"stage": "company_enrich", "status": "ok", "provider": "web_research", "counts": {"enriched": 4, "verified": 3, "failed": 0}, "cost": {"estimate": 0, "actual": 0, "unit": "credits"}},
+    {"stage": "people_search", "status": "ok", "provider": "apollo+web_research", "counts": {"sourced": 6, "failed_companies": 0}, "cost": {"estimate": 0, "actual": 0, "unit": "credits"}}
+  ],
+  "contacts": [
+    {"first_name": "Lena", "last_name": "Hoffmann", "full_name": "Lena Hoffmann", "title": "CFO", "company_name": "Nimbus Pay", "company_domain": "nimbuspay.example", "linkedin_url": "https://linkedin.com/in/lena-hoffmann-cfo", "country": "Germany", "location": "Berlin", "source": "apollo",
+     "qualify": {"qualification_status": "QUALIFY", "qualification_score": 9, "matched_persona": "Economic Buyer", "company_segment": "A"},
+     "email": {"email": "lena.hoffmann@nimbuspay.example", "email_source": "apollo", "email_validation": "verified"},
+     "phone": {"phone": "+49 30 5550 1234", "phone_type": "mobile", "phone_source": "apollo", "phone_validation": "unvalidated"}},
+    {"first_name": "Marco", "last_name": "Brunner", "full_name": "Marco Brunner", "title": "Chief Financial Officer", "company_name": "Helvetia Ledger", "company_domain": "helvetialedger.example", "linkedin_url": "https://linkedin.com/in/marco-brunner", "country": "Switzerland", "location": "Zurich", "source": "apollo",
+     "qualify": {"qualification_status": "QUALIFY", "qualification_score": 8, "matched_persona": "Economic Buyer", "company_segment": "A"},
+     "email": {"email": "marco.brunner@helvetialedger.example", "email_source": "apollo", "email_validation": "verified"},
+     "phone": {"phone": "+41 44 555 0199", "phone_type": "direct_dial", "phone_source": "apollo", "phone_validation": "unvalidated"}},
+    {"first_name": "Sophie", "last_name": "Maier", "full_name": "Sophie Maier", "title": "CFO", "company_name": "Tirol Treasury", "company_domain": "tiroltreasury.example", "linkedin_url": "https://linkedin.com/in/sophie-maier", "country": "Austria", "location": "Vienna", "source": "web_research",
+     "qualify": {"qualification_status": "QUALIFY", "qualification_score": 8, "matched_persona": "Economic Buyer", "company_segment": "A"},
+     "email": {"email": "sophie.maier@tiroltreasury.example", "email_source": "fullenrich", "email_validation": "deliverable"},
+     "phone": {"phone": "+43 1 5550 0177", "phone_type": "mobile", "phone_source": "fullenrich", "phone_validation": "unvalidated"}},
+    {"first_name": "Jonas", "last_name": "Gruber", "full_name": "Jonas Gruber", "title": "Head of Compliance", "company_name": "Tirol Treasury", "company_domain": "tiroltreasury.example", "linkedin_url": "https://linkedin.com/in/jonas-gruber", "country": "Austria", "location": "Vienna", "source": "web_research",
+     "qualify": {"qualification_status": "MAYBE", "qualification_score": 6, "matched_persona": "Compliance Champion", "company_segment": "A", "keep": true},
+     "email": {"email": "jonas.gruber@tiroltreasury.example", "email_source": "fullenrich", "email_validation": "deliverable"},
+     "phone": {"phone_source": "not_found"}},
+    {"first_name": "Paul", "last_name": "Keller", "full_name": "Paul Keller", "title": "Werkstudent Finance", "company_name": "Nimbus Pay", "company_domain": "nimbuspay.example", "linkedin_url": "https://linkedin.com/in/paul-keller-ws", "country": "Germany", "location": "Berlin", "source": "apollo",
+     "qualify": {"qualification_status": "SKIP", "qualification_score": 0, "matched_persona": "", "company_segment": "A", "qualification_notes": "title exclusion: werkstudent"}},
+    {"first_name": "Anna", "last_name": "Schmid", "full_name": "Anna Schmid", "title": "CFO", "company_name": "Rheinmetrik Finance", "company_domain": "rheinmetrik.example", "linkedin_url": "https://linkedin.com/in/anna-schmid-cfo", "country": "Germany", "location": "Frankfurt", "source": "apollo"}
+  ]
+}

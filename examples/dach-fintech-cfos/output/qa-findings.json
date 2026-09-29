@@ -1,0 +1,47 @@
+{
+  "findings": [
+    {
+      "key": "phone_not_e164:1:c284cc4c",
+      "code": "phone_not_e164",
+      "severity": "error",
+      "contact_ids": [
+        1
+      ],
+      "detail": "'+49 30 5550 1234' is not dialable as stored",
+      "suggestion": {
+        "phone": "+493055501234"
+      },
+      "acknowledged": false
+    },
+    {
+      "key": "phone_not_e164:2:6e73beeb",
+      "code": "phone_not_e164",
+      "severity": "error",
+      "contact_ids": [
+        2
+      ],
+      "detail": "'+41 44 555 0199' is not dialable as stored",
+      "suggestion": {
+        "phone": "+41445550199"
+      },
+      "acknowledged": false
+    },
+    {
+      "key": "phone_not_e164:3:7839ff2d",
+      "code": "phone_not_e164",
+      "severity": "error",
+      "contact_ids": [
+        3
+      ],
+      "detail": "'+43 1 5550 0177' is not dialable as stored",
+      "suggestion": {
+        "phone": "+43155500177"
+      },
+      "acknowledged": false
+    }
+  ],
+  "counts": {
+    "phone_not_e164": 3
+  },
+  "open_errors": 3
+}

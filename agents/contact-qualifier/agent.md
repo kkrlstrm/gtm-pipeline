@@ -22,7 +22,7 @@ Score each sourced contact against the adopter's ICP and tier it
    in-persona contact as QUALIFY (single tier).
 
 ## Inputs
-`python3 storage/cli.py query_by_stage --backend <b> [--dir <d>] --input
+`python3 storage/cli.py query_by_stage --input
 '{"list_id":<id>,"stage":"sourced"}'`.
 
 ## Scoring — run the Haiku batch workflow (token-efficient, never a baked rubric)
@@ -35,7 +35,10 @@ args: { "contacts": [<sourced contacts incl. id, title, company, + any company i
         "exclusions": "<context/exclusions.md>", "model": "haiku" }
 ```
 It fans out cheap Haiku `lead-scorer` subagents over batches and returns one scored row per
-contact (`status`, `score`, `matched_persona`, `company_segment`, `reason`). The rubric it
+contact (`status`, `score`, `matched_persona`, `company_segment`, `reason`), plus
+`unscored_ids` — contacts whose batch failed. **Leave unscored contacts at `sourced`**, list
+them at Gate #2, and re-run `score-leads` for just those ids. Never advance or skip a contact
+nobody scored. The rubric it
 applies is exactly the logic below — pass the context files through; do not re-derive a rubric:
 
 ### The rubric the workflow applies (per contact)
@@ -43,7 +46,7 @@ applies is exactly the logic below — pass the context files through; do not re
    domain), mark SKIP immediately (protects spend) — do not score further.
 2. **Company segment:** classify the contact's company as A / B / C per `segments.md`. If
    the `company_enrich` stage ran, load account intel with
-   `python3 storage/cli.py query_companies --backend <b> [--dir <d>] --input '{"list_id":<id>}'`
+   `python3 storage/cli.py query_companies --input '{"list_id":<id>}'`
    and match by normalized domain — funding stage, employee count, tech stack, and "why now"
    signals sharpen the segment and the company-fit score far beyond title alone.
 3. **Persona match:** match title/seniority to a persona in `personas.md` (honor its
@@ -68,11 +71,13 @@ This gate is genuinely valuable — keep it even when autonomy is high (it contr
   `fields:{qualification_status, qualification_score, matched_persona, company_segment,
   qualification_notes, enrich_recommended:"yes"}`.
 - SKIP (and rejected MAYBE): `advance_stage … "stage":"skipped"` with
-  `fields:{qualification_status:"SKIP", qualification_notes:"<reason>"}`.
+  `fields:{qualification_status:"SKIP", qualification_notes:"<reason>", skip_reason:"qualify: <reason>"}`.
 
 ## Reporting
-Counts per tier, segment distribution, persona distribution, top reasons for SKIP, and
-the count advanced to `qualified`. End with the next step: `email_enrich` on `qualified`.
+Counts per tier, segment distribution, persona distribution, top reasons for SKIP, any
+unscored contacts, and the count advanced to `qualified`. Log the stage (`log_event`,
+`stage: "qualify"`, the tally as counts, unscored ids as warnings). End with the next step:
+`qa` (resolve duplicates before paying to enrich them), then `email_enrich` on `qualified`.
 
 ## Notes
 - This stage runs before paid enrichment by design. If the orchestrator ever wires

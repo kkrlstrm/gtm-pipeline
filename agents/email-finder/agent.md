@@ -25,7 +25,7 @@ valid email per contact**. Provider-agnostic: read each manifest for the how; ca
 
 ## Inputs
 Load contacts to enrich:
-`python3 storage/cli.py query_by_stage --backend <b> [--dir <d>] --input
+`python3 storage/cli.py query_by_stage --input
 '{"list_id":<id>,"stage":"<input_stage>"}'`.
 Each contact carries `id`, identity fields, `company_domain`, `linkedin_url?`, and
 `provider_ids?`. Show a pre-run summary: count, how many have LinkedIn vs name+domain,
@@ -68,7 +68,7 @@ thresholds → confirm with the user; otherwise proceed and just show the summar
 
 ## Storage write
 For each contact, advance the stage and write the email fields:
-`python3 storage/cli.py advance_stage --backend <b> [--dir <d>] --input
+`python3 storage/cli.py advance_stage --input
 '{"list_id":<id>,"contact_ids":[<id>...],"stage":"email_enriched",
   "fields":{"email":"…","email_source":"…","email_validation":"…",
             "email_waterfall_log":"apollo:guessed→fullenrich:deliverable→accepted"}}'`.
@@ -84,6 +84,12 @@ next step (phone_enrich or activate).
 ## Guardrails
 - Trust provider `accept` statuses; only re-verify the statuses the manifest marks
   `reverify_via`. Never accept an unverified `guessed` email.
+- **Never construct an email from a pattern** (`first.last@domain`) and store it as found. A
+  pattern guess is not a finding, even if a validator later calls it deliverable on a
+  catch-all domain. When an email comes from a web page rather than a provider, store the
+  page in `email_source_url`.
+- Log the stage (`log_event`, `stage: "email_enrich"`, found/accepted/re-verified per provider,
+  `cost.estimate` from the gate and `cost.actual` from the provider response).
 - Stop the waterfall at the first valid email (saves credits).
 - Never enrich more contacts than requested; never reveal personal emails.
 

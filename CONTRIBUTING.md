@@ -18,9 +18,19 @@ provider manifest, a context template, or storage — not an agent prompt.
 ## Before you open a PR
 
 ```bash
-bash scripts/selftest.sh      # must pass (storage round-trip, adapter estimates, plan)
+bash scripts/selftest.sh      # must pass (storage, gates, adapters, plan, sweep checks)
 bash scripts/scrub-check.sh   # must exit 0 — no secrets, no source-org strings
+# changed storage/cli.py or schema.sql? run the gates on Postgres too:
+GTM_TEST_DATABASE_URL=postgresql://... python3 scripts/test_gates.py --backend postgres
 ```
+
+- Read [REVIEW.md](REVIEW.md): it is the bar a run clears, and a change that lets a run pass
+  while breaking it is a bug.
+- Fixing a defect? Ask which other path reaches the same code. When the answer is "several",
+  add a check to `scripts/sweep_checks.py` that covers the whole class, not just the case in
+  front of you.
+- A new storage op goes on **both** backends, or in the shared section of `storage/cli.py` on
+  top of backend primitives. `sweep_checks.py` fails if the backends drift apart.
 
 - Keep adapters **stdlib-only** and reading secrets **from the environment only**. The
   framework never fetches secrets over the network — see [SECURITY.md](SECURITY.md).
