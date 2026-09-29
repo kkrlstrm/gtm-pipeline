@@ -13,6 +13,9 @@ one-line reason it fits — grounded in a page you actually opened.
 
 Rules:
 - Only real, currently-operating companies. Confirm the domain resolves to that company.
+- Two organisations can share a name (a city and its school district, a company and its
+  foundation or parent). Confirm the site is the entity you mean: its name on the page, and
+  none of the other entity's content.
 - Never invent a company or a domain. If you are unsure, leave it out.
 - Prefer the company's own site and reputable directories/press. Cite the URL you used.
 - De-dupe by domain. Aim for quality over quantity — a tight, correct list beats a long

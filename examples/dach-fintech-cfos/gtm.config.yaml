@@ -22,7 +22,17 @@ defaults:
     paid_source_gate: warn
     pre_enrich_confirm_over: { contacts: 50, credits: 500 }
     activate_gate: confirm
+    title_preview: 3
   enrich_companies: true
+
+suppression:
+  file: context/do-not-contact.csv     # rheinmetrik.example — a current customer
+  required_for_activation: true
+
+qa:
+  default_country: DE                  # only US/CA numbers may omit +country; with DE, a number
+                                       # without +49 is flagged invalid rather than guessed
+  other_org_patterns: []
 
 waterfalls:
   company_search: [web_research, apollo]

@@ -43,6 +43,9 @@ const dimModel  = A.model || 'haiku'        // cheap breadth across many compani
 const synthModel = A.synthModel || 'sonnet' // careful merge + source verification
 const useFirecrawl = !!A.useFirecrawl
 function modelOpt(m) { return m && m !== 'inherit' ? { model: m } : {} }
+// Narrow agent type (web tools only). Pass agentType: '' for the generic subagent.
+const AGENT = A.agentType === undefined ? 'company-intel-researcher' : A.agentType
+function agentOpt(t) { return t ? { agentType: t } : {} }
 
 // Fire Enrich's phases, as discrete research dimensions.
 const DEFAULT_DIMENSIONS = [
@@ -155,28 +158,43 @@ const out = await pipeline(
   (c) => parallel(dimensions.map(d => () =>
     agent(dimPrompt(c, d), {
       label: `dim:${d.key}:${companyLabel(c).slice(0, 24)}`,
-      phase: 'Dimensions', schema: DIM_SCHEMA, ...modelOpt(dimModel),
-    }).then(r => r || { dimension: d.key, fields: {}, sources: [], note: 'agent skipped' })
+      phase: 'Dimensions', schema: DIM_SCHEMA, ...agentOpt(AGENT), ...modelOpt(dimModel),
+    }).then(r => r || { dimension: d.key, fields: {}, sources: [], note: 'AGENT FAILED — dimension not researched' })
   )),
   // Stage 2 — synthesize + verify into one record.
-  (dimResults, c) => agent(synthPrompt(c, dimResults), {
+  (dimResults, c) => {
+    const failedDims = dimResults.filter(d => (d.note || '').startsWith('AGENT FAILED')).map(d => d.dimension)
+    return agent(synthPrompt(c, dimResults), {
     label: `synth:${companyLabel(c).slice(0, 32)}`,
-    phase: 'Synthesize', schema: INTEL_SCHEMA, ...modelOpt(synthModel),
+    phase: 'Synthesize', schema: INTEL_SCHEMA, ...agentOpt(AGENT), ...modelOpt(synthModel),
   }).then(rec => {
-    if (!rec) return null
+    if (!rec) return { failed: true, company: companyLabel(c) }
     rec.enriched = true                       // mark for storage
     if (!rec.company_domain && c && typeof c === 'object') rec.company_domain = c.domain || c.company_domain || ''
-    return rec
-  }),
+    if (failedDims.length) {
+      // A dimension nobody researched is not a dimension with nothing to find.
+      rec.verified = false
+      rec.note = `${rec.note ? rec.note + ' ' : ''}NOT RESEARCHED (agent failed): ${failedDims.join(', ')}.`
+    }
+    return { rec, failedDims }
+  })
+  },
 )
 
-const rows = out.filter(Boolean)
+const failed = out.map((r, i) => (!r || r.failed) ? companyLabel(A.companies[i]) : null).filter(Boolean)
+const ok = out.filter(r => r && !r.failed)
+const rows = ok.map(r => r.rec)
+const partial = ok.filter(r => r.failedDims.length).map(r => ({ company: r.rec.company_name, dimensions: r.failedDims }))
 const verified = rows.filter(r => r.verified).length
-log(`Done: ${rows.length}/${A.companies.length} companies enriched, ${verified} verified.`)
+log(`Done: ${rows.length}/${A.companies.length} companies enriched, ${verified} verified.${failed.length ? ` FAILED: ${failed.join(', ')}` : ''}`)
 
 return {
   rows,                                       // -> storage/cli.py upsert_companies { companies: rows }
+  failed,                                     // companies with no record — report them, do not drop them silently
+  partial,                                    // companies whose record is missing whole dimensions
   summary: {
+    failed: failed.length,
+    partial: partial.length,
     companies_in: A.companies.length,
     enriched: rows.length,
     verified,

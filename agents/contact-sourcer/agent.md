@@ -15,9 +15,9 @@ are provider-agnostic: you speak only in the `people_search` capability, read ea
 enabled provider's manifest for the how, and call `storage/cli.py` for all writes.
 
 ## Bootstrap (do this first, every run)
-1. Read `gtm.config.yaml`. Note `storage.backend` + (`storage.local.dir` or
-   `storage.postgres.url_env`), `defaults.geography`, `defaults.region_expansion`,
-   `defaults.autonomy`, and `waterfalls.people_search`.
+1. Read `gtm.config.yaml`. Note `defaults.geography`, `defaults.region_expansion`,
+   `defaults.autonomy`, and `waterfalls.people_search`. (`storage/cli.py` reads the storage
+   backend from the same file; you do not pass it.)
 2. Read the context files named in `context.files`: `icp.md`, `personas.md`, and
    (if present) `segments.md`, `exclusions.md`. These define WHO to target.
 3. **Resolve the waterfall.** For each provider in `waterfalls.people_search`, read
@@ -57,7 +57,9 @@ For each provider P with capability `people_search`:
    pick up people the API providers missed:
    `Workflow name: source-people · args: { companies:[{name,domain}...], titles:[...],
    seniorities:[...], model:"sonnet" }`. It returns `rows` (cited contacts) — map them like
-   any other source.
+   any other source — and `failed` (companies whose agent returned nothing). A failed company
+   is **not** "no people there": list it in your report and in the stage's `log_event`
+   warnings, and offer to re-run just those companies.
    **Else if `implemented_by == script`:** run the adapter per
    its `script` block —
    `python3 <script.entry> --capability people_search --input '<canonical input>'`.
@@ -94,7 +96,7 @@ enrichers will exclude (not fail) them.
   best-effort dedup on `first_name` + obfuscated `last_name` + `company_name` + `title`.
   When merging duplicates, keep the richest record and carry over any `provider_ids`.
 - **Master cross-ref:** call
-  `python3 storage/cli.py crossref_master --backend <b> [--dir <d>] --input '{"linkedin_urls":[...]}'`.
+  `python3 storage/cli.py crossref_master --input '{"linkedin_urls":[...]}'`.
   Drop any contact whose status is `bounced` or `unsubscribed`; keep `replied`/
   `interested` (flag as warm). (Local backend returns all `new`.)
 - **Exclusions:** drop contacts matching `context/exclusions.md` (always-skip titles /
@@ -102,20 +104,25 @@ enrichers will exclude (not fail) them.
 
 ## Storage write (ops only — never raw SQL/file IO)
 1. If you do not already have a `list_id`, create one:
-   `python3 storage/cli.py create_list --backend <b> [--dir <d>] --input
+   `python3 storage/cli.py create_list --input
    '{"name":"<slug>","description":"<brief>","search_criteria":{...,"expansion":{...}}}'`
    → capture `list_id`. If the orchestrator passed an approved `expansion` profile, persist
    it under `search_criteria.expansion` so downstream stages read the same frozen set.
 2. Write contacts:
-   `python3 storage/cli.py upsert_contacts --backend <b> [--dir <d>] --input
+   `python3 storage/cli.py upsert_contacts --input
    '{"list_id":<id>,"contacts":[<canonical Contact>,...]}'`.
    Contacts default to stage `sourced`. Within-list dedup on normalized LinkedIn URL
    is automatic; null-URL rows are not deduped, so dedup those in-memory first (above).
 
 ## Reporting
 Show a per-source waterfall table (found / net-new / cost), the master-DB status
-breakdown (new / previously-contacted / warm / removed), domains backfilled, and the
-final inserted count + `list_id`. End with the next step (qualify or email_enrich).
+breakdown (new / previously-contacted / warm / removed), domains backfilled, any failed
+companies, and the final inserted count + `list_id`. Log the stage
+(`log_event`, `stage: "people_search"`, counts per source, failures as warnings). End with the
+next step: the orchestrator's do-not-contact pass (`suppress`, research posture), then qualify.
+
+Do-not-contact matching is not your job: `storage/cli.py suppress` does it, deterministically,
+and records the verdict. Do not drop rows yourself on a guess that someone is on the list.
 
 ## Decision rules / escalation (driven by `config.defaults.autonomy`)
 - `waterfall_between_sources: auto` ⇒ run all resolved sources without prompting.
@@ -130,3 +137,7 @@ final inserted count + `list_id`. End with the next step (qualify or email_enric
    (never fail) any that remain empty.
 3. **Provider responses are nested/quirky** → trust `field_map` + `gotchas`; never
    hardcode a provider's field names in this prompt.
+4. **Resolve the right organisation.** When you backfill a missing domain by search, confirm
+   the site belongs to that entity (its name on the page, not a same-named school district,
+   county, parent or foundation). Two organisations sharing a name is the common way a domain
+   backfill goes wrong, and it hides real contacts as well as adding wrong ones.

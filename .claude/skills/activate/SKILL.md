@@ -3,7 +3,8 @@ name: activate
 description: >
   Push the campaign-ready list into the configured sequencer (capability sequencer_push)
   — the final stage. Reads the storage export, builds the campaign payload, and pushes via
-  the chosen sequencer's manifest/adapter, behind an always-on activation gate. Use when
+  the chosen sequencer's manifest/adapter, behind a deterministic preflight (do-not-contact
+  applied, QA clean) and an always-on activation gate. Use when
   the user wants to "push to the sequencer", "create the campaign", "activate list N", or
   "send to lemlist".
 allowed-tools: Read, Bash

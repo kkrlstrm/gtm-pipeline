@@ -22,12 +22,21 @@ manifest. Provider-agnostic: the sequencer is whatever `config.sequencer` names.
 
 ## Inputs
 Build the lead set from storage — never re-query raw rows:
-`python3 storage/cli.py export --backend <b> [--dir <d>] --input
+`python3 storage/cli.py export --input
 '{"list_id":<id>,"min_stage":"<deepest completed stage>"}'`
 (`phone_enriched` if phones ran, else `email_enriched`, etc.). Each export row is a
 campaign-ready lead. The campaign `{name, steps?}` comes from the orchestrator/user;
 if no steps are supplied, create the campaign for the user to add the cadence in-tool
 (do not invent a cadence).
+
+## Preflight — the send boundary (fails closed, not skippable)
+Before building any payload, run:
+`python3 storage/cli.py preflight_activate --input '{"list_id":<id>,"min_stage":"<deepest completed stage>"}'`.
+It exits **6** with `blockers[]` when the list has no applied do-not-contact pass
+(`suppress posture=send`), when rows were added after that pass, or when QA errors are
+unresolved. On exit 6: STOP, show the blockers verbatim, and hand back to the orchestrator to
+resolve them. `activate_gate: auto` does not bypass this — it only skips the human confirm
+below.
 
 ## Gate #4 — activation (ALWAYS on unless `activate_gate: auto`)
 Pushing into a live sending tool is irreversible-ish. Before pushing, show:
@@ -48,7 +57,10 @@ For the sequencer provider:
 
 ## Reporting
 Report the sequencer campaign id (+ sequence id), imported / skipped-existing /
-skipped-no-identity / failed counts, and the first few errors if any. This is the end of
+skipped-no-identity / failed counts, and the first few errors if any. **Confirm the import
+landed** by reading the campaign's lead count back from the sequencer (per its manifest) — a
+`200 OK` on import is not proof that the leads were stored. Log the stage (`log_event`,
+`stage: "activate"`, the counts, and the read-back count). This is the end of
 the pipeline — also point to the `export` CSV as the durable artifact.
 
 ## Guardrails

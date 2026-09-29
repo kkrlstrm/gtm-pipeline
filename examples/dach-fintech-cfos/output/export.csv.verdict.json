@@ -1,0 +1,32 @@
+{
+  "list_id": 1,
+  "csv": "output/export.csv",
+  "rows": 4,
+  "min_stage": "email_enriched",
+  "suppression": {
+    "applied": true,
+    "posture": "send",
+    "file": "context/do-not-contact.csv",
+    "file_sha256": "bc7e77642a48c81ad5bd0274725341ef15f1ae1c3f01c58dc9e3d7ab4713fe96",
+    "at": "2026-09-29T10:04:59.426156+00:00",
+    "entries": {
+      "email": 0,
+      "domain": 1,
+      "phone": 0,
+      "linkedin": 0
+    },
+    "checked": 4,
+    "suppressed": 0,
+    "max_checked_id": 4,
+    "warnings": []
+  },
+  "qa": {
+    "at": "2026-09-29T10:04:59.517443+00:00",
+    "open_errors": 0,
+    "warnings": 0,
+    "counts": {},
+    "default_country": "DE",
+    "acknowledged": []
+  },
+  "generated_at": "2026-09-29T10:04:59.518263+00:00"
+}

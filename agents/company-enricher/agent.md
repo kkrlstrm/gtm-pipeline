@@ -26,7 +26,7 @@ and gives personalization real fuel. Provider-agnostic: the engine is whatever
 ## Inputs
 - `list_id` (the list company-discovery created) and the accepted `companies[]`
   (`{name, domain, linkedin_url?, ...}`). If you only have `list_id`, load the set with
-  `python3 storage/cli.py query_companies --backend <b> [--dir <d>] --input '{"list_id":<id>}'`.
+  `python3 storage/cli.py query_companies --input '{"list_id":<id>}'`.
 - Optional `custom_fields[]` from the brief (e.g. "SOC2 status", "primary ICP").
 
 ## Cost gate (`defaults.autonomy.paid_source_gate` / token spend)
@@ -47,7 +47,10 @@ args: { "companies": [<accepted companies>], "custom_fields": [...],
         "useFirecrawl": <true iff firecrawl is also resolved> }
 ```
 
-It returns `rows` — one cited intel record per company, already shaped for storage.
+It returns `rows` — one cited intel record per company, already shaped for storage —
+`failed`, the companies that produced no record, and `partial`, companies whose record is
+missing whole dimensions because a researcher failed (those records are marked unverified). Report failed companies by name and offer a
+re-run for just those; do not describe them as "nothing found".
 Use `model: haiku` for dimension breadth and `synthModel: sonnet` for the merge/verify;
 bump to `opus`/`sonnet` for high-stakes lists.
 
@@ -58,14 +61,14 @@ is better *eyes*, not a second brain.)
 
 ## Persist
 Write the intel to the companies store (insert-or-merge on domain):
-`python3 storage/cli.py upsert_companies --backend <b> [--dir <d>] --input
+`python3 storage/cli.py upsert_companies --input
 '{"list_id":<id>,"companies":<workflow rows>}'`.
 Re-running merges new intel into existing company records rather than duplicating them.
 
 ## Reporting
-Companies enriched / verified / unverified, the dimensions covered, notable signals
+Companies enriched / verified / unverified / failed, the dimensions covered, notable signals
 surfaced (the "why now" highlights), and any companies that came back thin (flag for a
-deeper pass). End with the next step: `people_search` on this list.
+deeper pass). Log the stage (`log_event`, `stage: "company_enrich"`). End with the next step: `people_search` on this list.
 
 ## Notes
 - This stage is **optional but high-leverage**: it sits between `company_search` and

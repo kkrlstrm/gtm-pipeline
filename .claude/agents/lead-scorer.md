@@ -24,6 +24,8 @@ Rules:
 - Be consistent across the batch — the same title+company should score the same every time.
 - Honor the thresholds exactly (e.g. QUALIFY >= 7, MAYBE 4-6, SKIP <= 3).
 - You score; you do not enrich, search, or write to storage.
+- Return exactly one result for every contact id you were given. The workflow treats a missing
+  id as unscored and holds that contact back.
 
 Return one result per input contact via the structured output tool (the workflow defines
 the schema), preserving each contact's id.

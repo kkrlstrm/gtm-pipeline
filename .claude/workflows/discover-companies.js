@@ -20,6 +20,8 @@ const geographies = Array.isArray(A.geographies) ? A.geographies : (A.geography 
 const criteria = A.criteria || ''
 const perAngle = A.count_per_angle || 15
 const model = A.model || 'sonnet'
+const AGENT = A.agentType === undefined ? 'company-researcher' : A.agentType
+function agentOpt(t) { return t ? { agentType: t } : {} }
 
 // Build search angles. Each becomes one company-researcher subagent.
 const angles = []
@@ -67,13 +69,14 @@ log(`Discovering across ${angles.length} angle(s) · model ${model}`)
 const out = await parallel(angles.map(angle => () =>
   agent(prompt(angle), {
     label: `discover:${angle.label.slice(0, 36)}`,
-    phase: 'Search', schema: SCHEMA, agentType: 'company-researcher', model,
-  }).then(r => ({ angle: angle.label, companies: (r && r.companies) || [] }))
+    phase: 'Search', schema: SCHEMA, ...agentOpt(AGENT), model,
+  }).then(r => r ? { angle: angle.label, companies: r.companies || [] } : { angle: angle.label, failed: true })
 ))
+const failed = out.map((r, i) => (!r || r.failed) ? angles[i].label : null).filter(Boolean)
 
 // Merge + dedupe by normalized domain (fallback to lowercased name).
 const seen = new Set(), rows = []
-for (const res of out.filter(Boolean)) {
+for (const res of out.filter(r => r && !r.failed)) {
   for (const c of res.companies) {
     const dom = (c.company_domain || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].replace(/\.$/, '')
     const key = dom || (c.company_name || '').trim().toLowerCase()
@@ -87,5 +90,5 @@ for (const res of out.filter(Boolean)) {
   }
 }
 
-log(`Discovered ${rows.length} unique companies across ${angles.length} angle(s).`)
-return { rows, summary: { angles: angles.length, companies: rows.length } }
+log(`Discovered ${rows.length} unique companies across ${angles.length} angle(s).${failed.length ? ` FAILED angles: ${failed.join(', ')}` : ''}`)
+return { rows, failed, summary: { angles: angles.length, companies: rows.length, failed: failed.length } }

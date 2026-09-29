@@ -8,6 +8,12 @@
 # (uncomment the next line if you prefer to keep your wiring private)
 # gtm.config.yaml
 
+# ── Personal data — your do-not-contact list names real people ───────────────
+/context/do-not-contact.csv
+# Exports and their verdict sidecars (postgres backend writes them to the repo root)
+pipeline-export-list-*.csv
+pipeline-export-list-*.csv.verdict.json
+
 # ── Local storage backend data ───────────────────────────────────────────────
 .gtm-data/
 

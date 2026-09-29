@@ -24,7 +24,7 @@ mobile, and stop at the first valid number. Provider-agnostic: manifests for the
 3. Determine the input stage (orchestrator-supplied; default `email_enriched`).
 
 ## Inputs
-`python3 storage/cli.py query_by_stage --backend <b> [--dir <d>] --input
+`python3 storage/cli.py query_by_stage --input
 '{"list_id":<id>,"stage":"<input_stage>"}'`. Show a pre-run summary (count, identity
 coverage, resolved waterfall + validator, cost estimate).
 
@@ -60,10 +60,13 @@ Phones are the most expensive step (e.g. FullEnrich 10 credits/phone). Before a 
 enricher, show counts + credit estimate; confirm if over the thresholds, else proceed.
 
 ## Storage write
-`python3 storage/cli.py advance_stage --backend <b> [--dir <d>] --input
+`python3 storage/cli.py advance_stage --input
 '{"list_id":<id>,"contact_ids":[<id>...],"stage":"phone_enriched",
-  "fields":{"phone":"+49…","phone_type":"mobile","phone_source":"…",
-            "phone_validation":"valid","phone_waterfall_log":"…"}}'`.
+  "fields":{"phone":"+49…","phone_ext":"","phone_type":"mobile","phone_source":"…",
+            "phone_validation":"valid","phone_waterfall_log":"…","phone_source_url":""}}'`.
+Store `phone` in E.164 (`+<country><number>`, digits only) and any extension separately in
+`phone_ext` — `+1 415.555.0142 ext. 12` is `phone: "+14155550142"`, `phone_ext: "12"`. A
+number glued to its extension, or written with dots, is not dialable; `qa` flags both.
 Advance not-found contacts too (`phone_source = not_found`). This is the final stage —
 after it, the list is campaign-ready for `export` / `activate`.
 
@@ -74,6 +77,14 @@ source distribution, credit estimate, and the count advanced to `phone_enriched`
 ## Guardrails
 - Always validate before accepting (unless no validator is keyed — then flag).
 - Prefer mobile; never accept a switchboard silently — flag it.
+- **A `mobile` or `direct_dial` is the named person's own line.** A number printed beside a
+  department, shared by several people, or equal to the company's main line is a
+  `switchboard`, whatever the provider labelled it. `qa` flags a number that appears on
+  several contacts as their own line.
+- **Never pattern-assemble a number** (e.g. a main line plus a guessed extension). Found and
+  validated, or blank.
+- Log the stage (`log_event`, `stage: "phone_enrich"`, found/validated per provider, phone-type
+  breakdown, `cost.estimate` and `cost.actual`).
 - Use the single match endpoint for Apollo phones; never set `reveal_phone_number:true`
   without a webhook.
 

@@ -5,8 +5,8 @@
 
 ## gtm-pipeline lets anyone with Claude Code request a campaign-ready list in plain English.
 
-Give it your ICP and personas (markdown), your provider keys (a local `.env`), and one
-wiring file (`gtm.config.yaml`). Then describe the campaign in plain English inside Claude
+Run `/gtm-setup` once: it asks seven questions, reads your website, and writes your ICP,
+personas and do-not-contact list. Then describe the campaign in plain English inside Claude
 Code:
 
 ```
@@ -14,11 +14,12 @@ Code:
 ```
 
 It turns that brief into a deduped, qualified, enriched, **sequencer-ready** contact list.
-Seven explicit stages, each threading one `list_id`:
+Seven explicit stages, each threading one `list_id`, with deterministic checks between them:
 
 ```
 company_search → company_enrich → people_search → qualify → email_enrich → phone_enrich → activate
    (discover)      (account intel)   (source)      (score)     (find email)   (find phone)   (push to sequencer)
+                                          └ do-not-contact    └ list QA                 └ QA · do-not-contact · preflight
 ```
 
 Before those stages, the brief is interpreted into a plan you approve at **Gate #1** — including
@@ -68,6 +69,32 @@ brief, the ICP, the real provider plan, cited account intel, the campaign-ready
 run — the data flow, the canonical records, the SKIPs removed before paid enrichment —
 generated through the actual `storage/cli.py` + `show-plan.py`.
 
+## Runs you can check
+
+A list-building run can exit cleanly and still be wrong: a researcher that died is counted as
+"nobody there", a phone is stored in a form no dialer takes, a customer's CFO is on the list
+because the do-not-contact file was never read. The pipeline makes those cases visible and
+stops them before the send:
+
+- **A run ledger.** Every stage records its provider, counts, credits estimated and spent, and
+  warnings. `/gtm status <list_id>` rebuilds the story from the ledger; `/gtm resume
+  <list_id>` continues an interrupted list with its frozen plan.
+- **Do-not-contact, in two postures.** Checked after sourcing (a missing list is flagged and
+  the run continues, because research contacts nobody) and before activation (a missing list
+  blocks the push). Every export carries a verdict file saying whether it was scrubbed.
+- **List QA.** It catches defects that a name+company dedupe and a human review both missed:
+  the same person under two spellings, a one-character email-domain typo, dot-format phones
+  and glued-on extensions, one switchboard number labelled as five people's direct dials.
+  Mechanical fixes are one command.
+- **An activation preflight** that no autonomy setting skips.
+- **Title preview.** Before sourcing is paid for, a few sample companies show which real
+  titles your title set catches and which it misses.
+- **Failures are reported, not filtered.** Every fan-out returns the items whose sub-agent
+  failed, and the qualifier never advances a contact nobody scored.
+
+The rules are in [REVIEW.md](REVIEW.md) and the mechanics in
+[docs/run-integrity.md](docs/run-integrity.md). Both backends run the same tested gates.
+
 ## What this unlocks
 
 - **Provider choice is configuration.** Swap Apollo for Prospeo, LeadMagic, AI Ark, FullEnrich,
@@ -97,9 +124,12 @@ enrich records, **and** hold every intermediate result. It loses state and flood
 - **`source-people`** — one `people-sourcer` (Sonnet) per company.
 - **`enrich-companies`** — a parallel research pass per account, then synthesize + source-verify.
 - **`score-leads`** — batched **Haiku** scoring against your rubric.
+- **`preview-titles`** — a few sample companies, to check the title set against real titles.
 
 The workflow script owns the loop, merge, and dedupe; the main agent receives only the final
 structured result — breadth without flooding context or paying top-tier prices for cheap work.
+Each workflow runs a narrow agent type (web tools only, no skill listing), so every sub-agent
+starts with a small context, and each returns the items that failed next to the results.
 
 ## The operator abstraction
 
@@ -133,7 +163,7 @@ flowchart TD
   end
 
   subgraph BRAIN["② Framework brain — speaks only in capabilities"]
-    orch["Orchestrator<br/>interpret → expand titles/segments → plan → 4 gates → thread list_id"]
+    orch["Orchestrator<br/>interpret → expand + preview titles → plan → gates → thread list_id"]
     agents["Capability agents (one per stage)<br/>company-discovery · company-enricher · contact-sourcer<br/>contact-qualifier · email-finder · phone-finder · activate"]
     orch --> agents
   end
@@ -148,7 +178,7 @@ flowchart TD
   end
 
   subgraph TRUTH["④ Storage — source of truth, byte-identical dedup"]
-    cli["storage/cli.py<br/>create_list · upsert · advance_stage · export · crossref"]
+    cli["storage/cli.py<br/>lists · contacts · export · run ledger<br/>suppress · qa · preflight_activate"]
     db[("local files  or  postgres")]
     cli --> db
   end
@@ -170,21 +200,23 @@ flowchart TD
 
 ## Quickstart
 
+In Claude Code:
+
+```
+/gtm-setup                       # ICP, personas, do-not-contact list, config — then a readiness check
+/gtm <your brief>                # run it
+/gtm status <list_id>            # what ran, counts, credits, open warnings
+```
+
+Or by hand:
+
 ```bash
-# 1. Configure
 cp .env.example .env                       # fill in the keys you have
 cp gtm.config.example.yaml gtm.config.yaml # tweak waterfalls / storage / autonomy
 cp context/icp.md.example      context/icp.md        # describe what you sell & who you target
 cp context/personas.md.example context/personas.md   # persona → title keywords
-
-# 2. Load secrets into your shell
 set -a && source .env && set +a
-
-# 3. See what your keys + config will actually do
-python3 scripts/show-plan.py
-
-# 4. Drive it from Claude Code
-#    /gtm target mid-market fintech CFOs in DACH for our compliance product
+python3 scripts/doctor.py                  # ready? says exactly what is missing
 ```
 
 The default config uses the `local` backend, so a first run needs no database. You can run
@@ -228,10 +260,11 @@ Run `python3 scripts/show-plan.py` to see which ones your current keys + config 
 
 | Path | What |
 |---|---|
+| `REVIEW.md` · `AGENTS.md` · `CLAUDE.md` | The quality bar every run clears; the contract for any coding agent (Claude Code, Codex, Cursor); Claude Code specifics |
 | `agents/` | The pipeline brain — one capability-agnostic agent per stage + an orchestrator |
 | `.claude/` | Bundled subagent workflows + custom subagents (the parallel fan-out) |
 | `providers/` | Pluggable provider registry (declarative `manifest.yaml` + optional `adapter.py`) |
-| `storage/` | `cli.py` (uniform op set) + self-contained Postgres schema |
+| `storage/` | `cli.py` (uniform op set, run ledger, gates) + self-contained Postgres schema |
 | `context/` | Your ICP / personas / segments / exclusions (shipped as `.example` skeletons) |
 | `examples/` | A complete synthetic run, end to end |
 | `docs/` | Architecture, capability taxonomy, single-provider, how to write a provider |
@@ -240,7 +273,8 @@ Run `python3 scripts/show-plan.py` to see which ones your current keys + config 
 
 - [examples/dach-fintech-cfos/](examples/dach-fintech-cfos/) — a complete worked run (ICP, config, provider plan, export CSV, activation log)
 - [docs/architecture.md](docs/architecture.md) — the layered diagram (brief → … → sequencer/CRM)
-- [docs/quickstart.md](docs/quickstart.md) — setup, the four gates, storage backends
+- [docs/quickstart.md](docs/quickstart.md) — setup, the gates, storage backends
+- [docs/run-integrity.md](docs/run-integrity.md) — the run ledger, do-not-contact, list QA, activation preflight, exit codes
 - [docs/single-provider.md](docs/single-provider.md) — run on one key (Apollo / Prospeo); why the free-search providers
 - [docs/capabilities.md](docs/capabilities.md) — capability taxonomy + canonical records + storage ops
 - [docs/role-expansion.md](docs/role-expansion.md) — ambiguous titles/industries → an explicit, gate-reviewed set (the recall fix)
@@ -259,8 +293,9 @@ run.
 ## Verify (no keys needed)
 
 ```bash
-bash scripts/selftest.sh      # storage round-trip, adapter estimates, plan resolution
+bash scripts/selftest.sh      # storage, gates on real defects, adapters, plan, sweep checks
 bash scripts/scrub-check.sh   # secret/leak gate — run before publishing a fork
+python3 examples/dach-fintech-cfos/replay.py   # regenerate the worked example through the real CLI
 ```
 
 ## Security & status

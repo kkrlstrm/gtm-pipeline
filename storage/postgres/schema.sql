@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS pipeline_lists (
     created_by VARCHAR(255) DEFAULT 'unknown',
     search_criteria JSONB,  -- {titles, seniority, geography, persona, companies, expansion}
     status VARCHAR(50) DEFAULT 'active',  -- active, completed, archived
+    run_state JSONB DEFAULT '{}'::jsonb,  -- gate verdicts: {suppression, qa, preflight}
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -118,13 +119,19 @@ CREATE TABLE IF NOT EXISTS pipeline_contacts (
     email_source VARCHAR(50),       -- provider | not_found
     email_validation VARCHAR(100),
     email_waterfall_log TEXT,
+    email_source_url TEXT,          -- page that shows this email for this person (web research)
 
     -- Phone fields (populated at phone_enriched stage)
-    phone VARCHAR(100),
+    phone VARCHAR(100),             -- E.164; the extension lives in phone_ext
+    phone_ext VARCHAR(20),
     phone_type VARCHAR(50),         -- mobile, direct_dial, switchboard
     phone_source VARCHAR(50),       -- provider | not_found
     phone_validation VARCHAR(100),
     phone_waterfall_log TEXT,
+    phone_source_url TEXT,          -- page that shows this number for this person (web research)
+
+    -- Why a row left the list (do-not-contact match, QA drop, qualifier SKIP)
+    skip_reason TEXT,
 
     -- Timestamps
     sourced_at TIMESTAMP DEFAULT NOW(),
@@ -165,6 +172,31 @@ DROP TRIGGER IF EXISTS trg_pipeline_contacts_normalize ON pipeline_contacts;
 CREATE TRIGGER trg_pipeline_contacts_normalize
     BEFORE INSERT OR UPDATE ON pipeline_contacts
     FOR EACH ROW EXECUTE FUNCTION pipeline_contacts_normalize_linkedin();
+
+-- =============================================================================
+-- UPGRADES for databases created by an earlier version of this file (idempotent)
+-- =============================================================================
+
+ALTER TABLE pipeline_lists    ADD COLUMN IF NOT EXISTS run_state JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE pipeline_contacts ADD COLUMN IF NOT EXISTS phone_ext VARCHAR(20);
+ALTER TABLE pipeline_contacts ADD COLUMN IF NOT EXISTS email_source_url TEXT;
+ALTER TABLE pipeline_contacts ADD COLUMN IF NOT EXISTS phone_source_url TEXT;
+ALTER TABLE pipeline_contacts ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+
+-- =============================================================================
+-- RUN LEDGER — one row per stage event (what ran, counts, cost, warnings)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS pipeline_run_events (
+    id SERIAL PRIMARY KEY,
+    list_id INTEGER NOT NULL REFERENCES pipeline_lists(list_id) ON DELETE CASCADE,
+    at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    stage VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL,        -- ok, warn, error, skipped
+    provider VARCHAR(100),
+    event JSONB NOT NULL                -- the full event as storage/cli.py wrote it
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_run_events_list ON pipeline_run_events(list_id, id);
 
 -- =============================================================================
 -- COMPANIES (company_enrich stage) — account-level intel, keyed by list_id + domain
@@ -233,7 +265,9 @@ LEFT JOIN pipeline_contacts pc ON pl.list_id = pc.list_id
 GROUP BY pl.list_id
 ORDER BY pl.created_at DESC;
 
-CREATE OR REPLACE VIEW pipeline_contacts_detail AS
+-- pc.* changes shape when columns are added, which CREATE OR REPLACE cannot do.
+DROP VIEW IF EXISTS pipeline_contacts_detail;
+CREATE VIEW pipeline_contacts_detail AS
 SELECT
     pc.*,
     pl.list_name,
@@ -245,6 +279,7 @@ JOIN pipeline_lists pl ON pc.list_id = pl.list_id;
 -- EXPORT FUNCTION  — column order MUST match storage/cli.py EXPORT_COLUMNS
 -- =============================================================================
 
+DROP FUNCTION IF EXISTS pipeline_export(INTEGER, VARCHAR);
 CREATE OR REPLACE FUNCTION pipeline_export(p_list_id INTEGER, p_min_stage VARCHAR DEFAULT 'sourced')
 RETURNS TABLE (
     first_name VARCHAR,
@@ -259,6 +294,7 @@ RETURNS TABLE (
     location VARCHAR,
     email VARCHAR,
     phone VARCHAR,
+    phone_ext VARCHAR,
     phone_type VARCHAR,
     source VARCHAR,
     matched_persona VARCHAR,
@@ -271,7 +307,7 @@ BEGIN
         pc.title, pc.seniority,
         pc.company_name, pc.company_domain,
         pc.linkedin_url, pc.country, pc.location,
-        pc.email, pc.phone, pc.phone_type,
+        pc.email, pc.phone, pc.phone_ext, pc.phone_type,
         pc.source, pc.matched_persona, pc.qualification_score
     FROM pipeline_contacts pc
     WHERE pc.list_id = p_list_id
@@ -283,6 +319,7 @@ BEGIN
           WHEN 'phone_enriched' THEN pc.stage = 'phone_enriched'
           ELSE TRUE
       END
-    ORDER BY pc.qualification_score DESC NULLS LAST, pc.company_name;
+    -- COLLATE "C" = codepoint order, the same order storage/cli.py sorts in locally.
+    ORDER BY pc.qualification_score DESC NULLS LAST, pc.company_name COLLATE "C" NULLS LAST, pc.id;
 END;
 $$ LANGUAGE plpgsql;

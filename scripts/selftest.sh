@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # selftest.sh — no-network smoke test of the framework's deterministic parts:
-# storage round-trip + dedup parity, adapter --estimate paths, and plan resolution.
+# storage round-trip + dedup parity, the run-integrity gates (suppression, QA, activation
+# preflight, run ledger), adapter --estimate paths, plan resolution, and sweep checks over
+# whole classes of drift. Set GTM_TEST_DATABASE_URL to also run the gates on Postgres.
 # Exits non-zero on the first failed assertion. Requires python3 (and pyyaml for show-plan).
 
 set -uo pipefail
@@ -15,7 +17,7 @@ eq()   { if [ "$2" = "$3" ]; then ok "$1 ($2)"; else bad "$1 (got '$2', want '$3
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 D="$TMP/.gtm-data"
-CLI() { python3 storage/cli.py "$1" --backend local --dir "$D" --input "$2"; }
+CLI() { python3 storage/cli.py "$1" --backend local --dir "$D" --input "$2" 2>/dev/null; }
 jq1() { python3 -c "import sys,json;print(json.load(sys.stdin)$1)"; }
 
 echo "== storage: local round-trip + dedup parity =="
@@ -84,8 +86,31 @@ eq "hubspot crm_dedupe estimate (company)" \
 eq "hubspot crm_dedupe estimate (contact)" \
   "$(python3 providers/hubspot/adapter.py --capability crm_dedupe --estimate --input '{"object":"contact","values":["a@b.com"]}' | jq1 "['object']")" "contact"
 
+echo; echo "== gates: suppression, QA, activation preflight, run ledger (local) =="
+if OUT=$(python3 scripts/test_gates.py --backend local 2>&1); then
+  ok "$(echo "$OUT" | tail -1)"
+else
+  bad "test_gates local"; echo "$OUT" | tail -5
+fi
+if [ -n "${GTM_TEST_DATABASE_URL:-}" ]; then
+  if OUT=$(python3 scripts/test_gates.py --backend postgres 2>&1); then
+    ok "$(echo "$OUT" | tail -1)"
+  else
+    bad "test_gates postgres"; echo "$OUT" | tail -5
+  fi
+else
+  echo "  (GTM_TEST_DATABASE_URL not set — skipping the same gates on postgres)"
+fi
+
+echo; echo "== sweep checks (whole classes of drift) =="
+if OUT=$(python3 scripts/sweep_checks.py 2>&1); then
+  ok "$(echo "$OUT" | tail -1)"
+else
+  bad "sweep_checks"; echo "$OUT" | grep -A3 FAIL
+fi
+
 echo; echo "== compile all python =="
-if python3 -m py_compile storage/cli.py providers/*/adapter.py scripts/show-plan.py 2>/dev/null; then
+if python3 -m py_compile storage/cli.py providers/*/adapter.py scripts/*.py 2>/dev/null; then
   ok "py_compile"; else bad "py_compile"; fi
 
 echo; echo "== bundled workflow syntax (if node present) =="

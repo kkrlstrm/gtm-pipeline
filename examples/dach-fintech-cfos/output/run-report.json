@@ -1,0 +1,309 @@
+{
+  "list": {
+    "list_id": 1,
+    "name": "dach-fintech-cfos",
+    "description": "target mid-market fintech CFOs in DACH for our compliance product",
+    "status": "active",
+    "created_at": "2026-09-29T10:04:58.013323+00:00"
+  },
+  "plan": {
+    "brief": "target mid-market fintech CFOs in DACH for our compliance product",
+    "geography": [
+      "DE",
+      "AT",
+      "CH"
+    ],
+    "personas": [
+      "Economic Buyer",
+      "Compliance Champion"
+    ],
+    "stages": [
+      "company_search",
+      "crm_dedupe",
+      "company_enrich",
+      "people_search",
+      "suppress",
+      "qualify",
+      "qa",
+      "email_enrich",
+      "phone_enrich",
+      "qa",
+      "suppress",
+      "preflight_activate",
+      "activate"
+    ],
+    "sequencer": "lemlist"
+  },
+  "summary": {
+    "list_id": 1,
+    "list_name": "dach-fintech-cfos",
+    "status": "active",
+    "created_at": "2026-09-29T10:04:58.013323+00:00",
+    "sourced": 0,
+    "qualified": 0,
+    "email_enriched": 0,
+    "phone_enriched": 4,
+    "skipped": 2,
+    "total_contacts": 6
+  },
+  "stages_logged": [
+    "company_enrich",
+    "company_search",
+    "crm_dedupe",
+    "email_enrich",
+    "people_search",
+    "phone_enrich",
+    "preflight_activate",
+    "qa",
+    "qa_resolve",
+    "qualify",
+    "suppress"
+  ],
+  "stages_skipped": [],
+  "events": [
+    {
+      "at": "2026-09-29T10:04:58.113478+00:00",
+      "stage": "company_search",
+      "status": "ok",
+      "provider": "web_research+apollo",
+      "counts": {
+        "found": 4,
+        "net_new": 4
+      },
+      "warnings": [],
+      "cost": {},
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:58.161228+00:00",
+      "stage": "crm_dedupe",
+      "status": "ok",
+      "provider": "hubspot",
+      "counts": {
+        "checked": 4,
+        "in_crm": 1
+      },
+      "warnings": [],
+      "cost": {},
+      "note": "rheinmetrik.example is a current customer"
+    },
+    {
+      "at": "2026-09-29T10:04:58.213469+00:00",
+      "stage": "company_enrich",
+      "status": "ok",
+      "provider": "web_research",
+      "counts": {
+        "enriched": 4,
+        "verified": 3,
+        "failed": 0
+      },
+      "warnings": [],
+      "cost": {
+        "estimate": 0,
+        "actual": 0,
+        "unit": "credits"
+      },
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:58.265546+00:00",
+      "stage": "people_search",
+      "status": "ok",
+      "provider": "apollo+web_research",
+      "counts": {
+        "sourced": 6,
+        "failed_companies": 0
+      },
+      "warnings": [],
+      "cost": {
+        "estimate": 0,
+        "actual": 0,
+        "unit": "credits"
+      },
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:58.425396+00:00",
+      "stage": "suppress",
+      "status": "ok",
+      "provider": null,
+      "counts": {
+        "checked": 6,
+        "suppressed": 1
+      },
+      "warnings": [],
+      "cost": {},
+      "note": "posture=research"
+    },
+    {
+      "at": "2026-09-29T10:04:58.770059+00:00",
+      "stage": "qualify",
+      "status": "ok",
+      "provider": null,
+      "counts": {
+        "QUALIFY": 3,
+        "MAYBE": 1,
+        "SKIP": 1
+      },
+      "warnings": [],
+      "cost": {},
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:58.818083+00:00",
+      "stage": "qa",
+      "status": "ok",
+      "provider": null,
+      "counts": {},
+      "warnings": [],
+      "cost": {},
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:59.072486+00:00",
+      "stage": "email_enrich",
+      "status": "ok",
+      "provider": "apollo+fullenrich",
+      "counts": {
+        "found": 4,
+        "accepted": 4
+      },
+      "warnings": [],
+      "cost": {
+        "estimate": 6,
+        "actual": 5,
+        "unit": "credits"
+      },
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:59.291234+00:00",
+      "stage": "phone_enrich",
+      "status": "warn",
+      "provider": "apollo+fullenrich",
+      "counts": {
+        "found": 3,
+        "not_found": 1
+      },
+      "warnings": [
+        "no phone_validate provider keyed; numbers accepted unvalidated"
+      ],
+      "cost": {
+        "estimate": 40,
+        "actual": 30,
+        "unit": "credits"
+      },
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:59.335688+00:00",
+      "stage": "qa",
+      "status": "warn",
+      "provider": null,
+      "counts": {
+        "phone_not_e164": 3
+      },
+      "warnings": [
+        "3 unresolved QA error(s)"
+      ],
+      "cost": {},
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:59.382178+00:00",
+      "stage": "qa_resolve",
+      "status": "ok",
+      "provider": null,
+      "counts": {
+        "fix": 3
+      },
+      "warnings": [],
+      "cost": {},
+      "note": "normalize provider phone format to E.164"
+    },
+    {
+      "at": "2026-09-29T10:04:59.382561+00:00",
+      "stage": "qa",
+      "status": "ok",
+      "provider": null,
+      "counts": {},
+      "warnings": [],
+      "cost": {},
+      "note": null
+    },
+    {
+      "at": "2026-09-29T10:04:59.426689+00:00",
+      "stage": "suppress",
+      "status": "ok",
+      "provider": null,
+      "counts": {
+        "checked": 4,
+        "suppressed": 0
+      },
+      "warnings": [],
+      "cost": {},
+      "note": "posture=send"
+    },
+    {
+      "at": "2026-09-29T10:04:59.472592+00:00",
+      "stage": "preflight_activate",
+      "status": "ok",
+      "provider": null,
+      "counts": {
+        "leads_ready": 4
+      },
+      "warnings": [],
+      "cost": {},
+      "note": null
+    }
+  ],
+  "open_warnings": [
+    {
+      "stage": "phone_enrich",
+      "at": "2026-09-29T10:04:59.291234+00:00",
+      "warning": "no phone_validate provider keyed; numbers accepted unvalidated"
+    }
+  ],
+  "gates": {
+    "suppression": {
+      "applied": true,
+      "posture": "send",
+      "file": "context/do-not-contact.csv",
+      "file_sha256": "bc7e77642a48c81ad5bd0274725341ef15f1ae1c3f01c58dc9e3d7ab4713fe96",
+      "at": "2026-09-29T10:04:59.426156+00:00",
+      "entries": {
+        "email": 0,
+        "domain": 1,
+        "phone": 0,
+        "linkedin": 0
+      },
+      "checked": 4,
+      "suppressed": 0,
+      "max_checked_id": 4,
+      "warnings": []
+    },
+    "qa": {
+      "at": "2026-09-29T10:04:59.517443+00:00",
+      "open_errors": 0,
+      "warnings": 0,
+      "counts": {},
+      "default_country": "DE",
+      "acknowledged": []
+    },
+    "preflight": {
+      "at": "2026-09-29T10:04:59.472356+00:00",
+      "ok": true,
+      "blockers": [],
+      "warnings": [],
+      "leads_ready": 4,
+      "leads_without_identity": 0,
+      "min_stage": "email_enriched"
+    }
+  },
+  "cost": {
+    "credits": {
+      "estimate": 46,
+      "actual": 35
+    }
+  }
+}
