@@ -73,6 +73,9 @@ waterfalls:
   company_search: [web_research, ai-ark, dropleads, apollo, leadmagic]   # web_research = Sonnet discover-companies fan-out (no key); ai-ark = cold filter + look-alike w/ inline intel; leadmagic = look-alike (needs a seed)
   company_enrich: [web_research, ai-ark, firecrawl, leadmagic]           # account intel; ai-ark intel ships inline with its company_search (no extra call); web_research = Claude subagent fan-out (no key)
   people_search:  [apify, apollo, dropleads, ai-ark, leadmagic, web_research]  # web_research = Sonnet source-people fan-out, fallback for gaps
+  # Optional LinkedIn people_search alternative (not in the default waterfall):
+  # people_search:  [alphaosint, apollo, dropleads, ai-ark, leadmagic, web_research]
+
   email_enrich:   [apollo, fullenrich, leadmagic, ai-ark]   # leadmagic + ai-ark are self-validating + free-on-miss; ai-ark email needs a people-search trackId (<=6h)
   email_validate: [leadmagic, fullenrich]   # leadmagic = dedicated 0.25cr validator (the real validate slot); ai-ark has NO standalone validator
   phone_enrich:   [apollo, fullenrich, leadmagic, ai-ark]   # ai-ark mobile-finder is sync, keyed on linkedin_url OR domain+full_name

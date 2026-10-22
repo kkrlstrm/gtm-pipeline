@@ -1,0 +1,36 @@
+# providers/alphaosint/manifest.yaml
+# Script-backed people_search via johnvc/linkedin-company-employees-api.
+# Opt-in only: list `alphaosint` in people_search in gtm.config.yaml. Not in the
+# default waterfall.
+name: alphaosint
+display_name: Alpha OSINT (johnvc/linkedin-company-employees-api)
+docs_url: https://apify.com/johnvc/linkedin-company-employees-api
+# SCOPE: LinkedIn-only people_search. Company names or URLs in, title and
+# location filters, public profile contacts out. No email or phone.
+auth:
+  type: env
+  env: APIFY_TOKEN
+base_url: https://api.apify.com/v2
+
+capabilities:
+  people_search:
+    cost: "pay per person returned; see the Store pricing tab"
+    implemented_by: script
+    script:
+      runner: python3
+      entry: providers/alphaosint/adapter.py
+      modes: [run, estimate, resolve-only]
+    response:
+      field_map:
+        fullName: full_name
+        currentTitle: title
+        currentCompany: company_name
+        profileUrl: linkedin_url
+        location: location
+    gotchas:
+      - "COMPLIANCE: this scrapes public LinkedIn company employees via a third-party Actor. LinkedIn ToS and data-protection obligations are yours to honor. See SECURITY.md."
+      - "The Actor accepts up to 5 companies per run. The adapter batches larger lists."
+      - "No seniority or function IDs. Map seniorities to title words (director, vp, head of, ...) via titleKeywords."
+      - "No email or phone. Pair with an enricher for those."
+      - "linkedin_url is the public /in/<slug> form, not a member-id URL. If you stack this with the apify provider, the same person can appear under two different URLs and will not dedupe on URL. Running one LinkedIn people source at a time avoids that."
+      - "verifyEmployment is on: each person is checked against their public profile for a current role at the company."

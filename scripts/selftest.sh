@@ -64,6 +64,15 @@ eq "lemlist sequencer estimate leads" \
   "$(python3 providers/lemlist/adapter.py --capability sequencer_push --estimate --input '{"campaign":{"name":"t"},"leads":[{"email":"a@b.com"},{"first_name":"x"}]}' | jq1 "['leads_to_import']")" "1"
 eq "apify estimate (skip-resolve)" \
   "$(python3 providers/apify/adapter.py --capability people_search --skip-resolve --estimate --input '{"companies":["x.com"],"titles":["CFO"],"max":50}' | jq1 "['companies']")" "1"
+eq "alphaosint estimate companies" \
+  "$(python3 providers/alphaosint/adapter.py --capability people_search --estimate --input '{"companies":["x.com","y.com","z.com","a.com","b.com","c.com"],"titles":["CFO"],"seniorities":["Director"],"max":50}' | jq1 "['companies']")" "6"
+eq "alphaosint estimate batches (5 per run)" \
+  "$(python3 providers/alphaosint/adapter.py --capability people_search --estimate --input '{"companies":["x.com","y.com","z.com","a.com","b.com","c.com"],"titles":["CFO"],"max":50}' | jq1 "['batches']")" "2"
+if python3 providers/alphaosint/test_mapping.py >/dev/null; then
+  ok "alphaosint offline mapping fixture"
+else
+  bad "alphaosint offline mapping fixture"
+fi
 eq "firecrawl company_enrich estimate" \
   "$(python3 providers/firecrawl/adapter.py --capability company_enrich --estimate --input '{"companies":[{"name":"Acme","domain":"acme.com"},{"name":"Globex","domain":"globex.io"}]}' | jq1 "['companies']")" "2"
 
